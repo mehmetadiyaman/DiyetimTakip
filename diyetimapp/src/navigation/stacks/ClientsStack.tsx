@@ -2,20 +2,11 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ClientsStackParamList } from '../../types';
 
-// Henüz ekran bileşenleri oluşturulmadı, ilerde eklenecek
-// import ClientsListScreen from '../../screens/clients/ClientsListScreen';
-// import ClientDetailsScreen from '../../screens/clients/ClientDetailsScreen';
-// import AddClientScreen from '../../screens/clients/AddClientScreen';
-// ...vb.
+// Ekran bileşenleri
+import ClientsListScreen from '../../screens/clients/ClientsListScreen';
 
 // Geçici olarak boş bileşenler
 import { View, Text } from 'react-native';
-
-const ClientsListScreen = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text>Clients List Screen</Text>
-  </View>
-);
 
 const ClientDetailsScreen = () => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
