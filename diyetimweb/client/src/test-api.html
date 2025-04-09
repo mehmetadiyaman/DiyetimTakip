@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dietçim API Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .result {
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-6">Dietçim API Test</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Kayıt Formu -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Kayıt Ol</h2>
+                <form id="registerForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">İsim</label>
+                        <input type="text" name="name" class="w-full p-2 border rounded" value="Test Kullanıcı">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">E-posta</label>
+                        <input type="email" name="email" class="w-full p-2 border rounded" value="test@dietcim.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Şifre</label>
+                        <input type="password" name="password" class="w-full p-2 border rounded" value="123456">
+                    </div>
+                    <button type="submit" class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700">Kayıt Ol</button>
+                </form>
+                <div class="mt-4">
+                    <h3 class="text-sm font-medium mb-2">Sonuç:</h3>
+                    <div id="registerResult" class="result bg-gray-100 p-3 rounded text-sm"></div>
+                </div>
+            </div>
+            
+            <!-- Giriş Formu -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Giriş Yap</h2>
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">E-posta</label>
+                        <input type="email" name="email" class="w-full p-2 border rounded" value="test@dietcim.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Şifre</label>
+                        <input type="password" name="password" class="w-full p-2 border rounded" value="123456">
+                    </div>
+                    <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">Giriş Yap</button>
+                </form>
+                <div class="mt-4">
+                    <h3 class="text-sm font-medium mb-2">Sonuç:</h3>
+                    <div id="loginResult" class="result bg-gray-100 p-3 rounded text-sm"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resultDiv = document.getElementById('registerResult');
+            resultDiv.textContent = 'İstek gönderiliyor...';
+            
+            const formData = new FormData(e.target);
+            const userData = {
+                name: formData.get('name'),
+                email: formData.get('email'),
+                password: formData.get('password')
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+                
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                
+                if (response.ok && data.token) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                }
+            } catch (error) {
+                resultDiv.textContent = `Hata: ${error.message}`;
+                console.error(error);
+            }
+        });
+        
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resultDiv = document.getElementById('loginResult');
+            resultDiv.textContent = 'İstek gönderiliyor...';
+            
+            const formData = new FormData(e.target);
+            const credentials = {
+                email: formData.get('email'),
+                password: formData.get('password')
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(credentials)
+                });
+                
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                
+                if (response.ok && data.token) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                }
+            } catch (error) {
+                resultDiv.textContent = `Hata: ${error.message}`;
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html> 
