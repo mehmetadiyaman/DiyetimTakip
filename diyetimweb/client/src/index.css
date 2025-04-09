@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71.4% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71.4% 4.1%;
+    --primary: 120 37% 41%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 120 19% 90%;
+    --secondary-foreground: 120 37% 15%;
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: 120 24% 94%;
+    --accent-foreground: 120 37% 20%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 120 37% 41%;
+    --radius: 0.6rem;
+    
+    /* Chart Colors */
+    --chart-1: 120 37% 41%;
+    --chart-2: 83 65% 55%;
+    --chart-3: 50 98% 64%;
+    --chart-4: 25 95% 58%;
+    --chart-5: 0 84% 60%;
+  }
+
+  .dark {
+    --background: 222 47% 9%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 45% 7%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 120 37% 41%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 118 25% 25%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 18%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 118 28% 20%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 120 45% 45%;
+    
+    /* Chart Colors */
+    --chart-1: 120 37% 50%;
+    --chart-2: 83 65% 55%;
+    --chart-3: 50 98% 64%;
+    --chart-4: 25 95% 58%;
+    --chart-5: 0 84% 60%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+  
+  /* Custom Scrollbar Styles */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Dark mode scrollbar */
+  .dark ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+  
+  /* Scrollbar-ı tamamen gizle */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE ve Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari ve Opera */
+  }
+}
+
+/* Sayfa geçiş animasyonları */
+.page-transition {
+  position: relative;
+  transition: opacity 300ms ease;
+}
+
+.page-transition.fadeIn {
+  animation: fadeIn 300ms ease forwards;
+}
+
+.page-transition.fadeOut {
+  animation: fadeOut 300ms ease forwards;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* Diyetisyen teması için özel stillemeler */
+.dark .bg-primary-light {
+  background-color: hsl(120 37% 60%);
+}
+
+.dark .text-primary-light {
+  color: hsl(120 37% 65%);
+}
+
+.dark .border-primary {
+  border-color: hsl(120 37% 41%);
+}
+
+.dark .shadow-glow {
+  box-shadow: 0 0 15px rgba(76, 175, 80, 0.2);
+}
+
+/* Diyetisyen dark tema diğer stillemeler */
+.dark .card-hover:hover {
+  background-color: hsl(222 47% 14%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dark .health-gradient {
+  background: linear-gradient(135deg, hsl(120 37% 41%), hsl(83 65% 35%));
+}
+
+.dark .nutrition-indicator {
+  border-left: 4px solid hsl(120 37% 41%);
+}
+
+/* Diğer CSS kuralları buraya gelecek */
