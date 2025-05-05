@@ -25,6 +25,8 @@ import { commonStyles } from '../themes';
 import FoodItemsScreen from '../screens/app/FoodItemsScreen';
 import RecipesScreen from '../screens/app/RecipesScreen';
 import MealPlannerScreen from '../screens/app/MealPlannerScreen';
+import ExerciseTrackingScreen from '../screens/app/ExerciseTrackingScreen';
+import NotificationSettingsScreen from '../screens/app/NotificationSettingsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -124,8 +126,8 @@ const AppTabs = () => (
     />
     <Tab.Screen 
       name="Profile" 
-      component={ProfileScreen} 
-      options={{ title: 'Profil' }} 
+      component={ProfileStack} 
+      options={{ title: 'Profil', headerShown: false }} 
     />
   </Tab.Navigator>
 );
@@ -176,6 +178,11 @@ const ClientsStack = () => (
       component={MealPlannerScreen} 
       options={({ route }) => ({ title: `${route.params?.clientName ? route.params.clientName + ' - ' : ''}Beslenme Takibi` })} 
     />
+    <ClientsStackNav.Screen 
+      name="ExerciseTracking" 
+      component={ExerciseTrackingScreen} 
+      options={({ route }) => ({ title: `${route.params?.clientName ? route.params.clientName + ' - ' : ''}Egzersiz Takibi` })} 
+    />
   </ClientsStackNav.Navigator>
 );
 
@@ -210,7 +217,29 @@ const MealPlannerStack = () => (
       component={RecipesScreen} 
       options={{ title: 'Tarifler' }} 
     />
+    <MealPlannerStackNav.Screen 
+      name="ExerciseTracking" 
+      component={ExerciseTrackingScreen} 
+      options={{ title: 'Egzersiz Takibi' }} 
+    />
   </MealPlannerStackNav.Navigator>
+);
+
+// Profile Stack
+const ProfileStackNav = createStackNavigator();
+const ProfileStack = () => (
+  <ProfileStackNav.Navigator screenOptions={stackScreenOptions}>
+    <ProfileStackNav.Screen 
+      name="ProfileMain" 
+      component={ProfileScreen} 
+      options={{ title: 'Profil' }} 
+    />
+    <ProfileStackNav.Screen 
+      name="NotificationSettings" 
+      component={NotificationSettingsScreen} 
+      options={{ title: 'Bildirim Ayarları' }} 
+    />
+  </ProfileStackNav.Navigator>
 );
 
 // Main App Navigator
