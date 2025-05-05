@@ -141,6 +141,64 @@ const DashboardScreen = ({ navigation }) => {
           <Text style={styles.statLabel}>Bugün</Text>
         </TouchableOpacity>
       </View>
+      
+      {/* Hızlı Erişim Menüsü */}
+      <Card style={styles.sectionCard}>
+        <Card.Content>
+          <Title style={styles.sectionTitle}>Hızlı Erişim</Title>
+          <View style={styles.quickAccessGrid}>
+            <TouchableOpacity 
+              style={styles.quickAccessItem}
+              onPress={() => navigation.navigate('MealPlanner')}
+            >
+              <View style={[styles.quickAccessIcon, { backgroundColor: '#FF9800' }]}>
+                <Ionicons name="restaurant" size={24} color="white" />
+              </View>
+              <Text style={styles.quickAccessLabel}>Beslenme Takibi</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.quickAccessItem}
+              onPress={() => navigation.navigate('FoodItems')}
+            >
+              <View style={[styles.quickAccessIcon, { backgroundColor: '#4CAF50' }]}>
+                <Ionicons name="nutrition" size={24} color="white" />
+              </View>
+              <Text style={styles.quickAccessLabel}>Besin Havuzu</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.quickAccessItem}
+              onPress={() => navigation.navigate('Recipes')}
+            >
+              <View style={[styles.quickAccessIcon, { backgroundColor: '#F44336' }]}>
+                <Ionicons name="book" size={24} color="white" />
+              </View>
+              <Text style={styles.quickAccessLabel}>Tarifler</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.quickAccessItem}
+              onPress={() => navigation.navigate('ExerciseTracking')}
+            >
+              <View style={[styles.quickAccessIcon, { backgroundColor: '#9C27B0' }]}>
+                <Ionicons name="fitness" size={24} color="white" />
+              </View>
+              <Text style={styles.quickAccessLabel}>Egzersiz</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.quickAccessItem}
+              onPress={() => navigation.navigate('Appointments')}
+            >
+              <View style={[styles.quickAccessIcon, { backgroundColor: '#3F51B5' }]}>
+                <Ionicons name="calendar" size={24} color="white" />
+              </View>
+              <Text style={styles.quickAccessLabel}>Randevular</Text>
+            </TouchableOpacity>
+          </View>
+        </Card.Content>
+      </Card>
 
       {/* Bugünkü Randevular */}
       <Card style={styles.sectionCard}>
@@ -381,6 +439,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#757575',
     marginTop: 4,
+  },
+  quickAccessGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  quickAccessItem: {
+    width: '48%',
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+  },
+  quickAccessIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickAccessLabel: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
   },
 });
 

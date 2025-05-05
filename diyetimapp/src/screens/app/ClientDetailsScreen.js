@@ -24,6 +24,7 @@ import {
 } from 'react-native-paper';
 import { useAuth } from '../../hooks/useAuth';
 import { apiRequest } from '../../api/config';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const ClientDetailsScreen = ({ navigation, route }) => {
   const { token } = useAuth();
@@ -465,6 +466,66 @@ const ClientDetailsScreen = ({ navigation, route }) => {
                 Düzenle
               </Button>
             </View>
+
+            {/* İşlem Butonları */}
+            <Card style={styles.card}>
+              <Card.Content>
+                <Title style={styles.title}>İşlemler</Title>
+                <View style={styles.actionsContainer}>
+                  <TouchableOpacity 
+                    style={styles.actionButton}
+                    onPress={() => navigation.navigate('Measurements', { 
+                      clientId: clientId, 
+                      clientName: client.name 
+                    })}
+                  >
+                    <View style={[styles.actionIcon, { backgroundColor: '#2196F3' }]}>
+                      <Ionicons name="analytics" size={24} color="white" />
+                    </View>
+                    <Text style={styles.actionText}>Ölçümler</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.actionButton}
+                    onPress={() => navigation.navigate('DietPlans', { 
+                      clientId: clientId, 
+                      clientName: client.name 
+                    })}
+                  >
+                    <View style={[styles.actionIcon, { backgroundColor: '#4CAF50' }]}>
+                      <Ionicons name="restaurant" size={24} color="white" />
+                    </View>
+                    <Text style={styles.actionText}>Diyet Planı</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.actionButton}
+                    onPress={() => navigation.navigate('ClientMealPlanner', { 
+                      clientId: clientId, 
+                      clientName: client.name 
+                    })}
+                  >
+                    <View style={[styles.actionIcon, { backgroundColor: '#FF9800' }]}>
+                      <Ionicons name="nutrition" size={24} color="white" />
+                    </View>
+                    <Text style={styles.actionText}>Beslenme Takibi</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.actionButton}
+                    onPress={() => navigation.navigate('ExerciseTracking', { 
+                      clientId: clientId, 
+                      clientName: client.name 
+                    })}
+                  >
+                    <View style={[styles.actionIcon, { backgroundColor: '#9C27B0' }]}>
+                      <Ionicons name="fitness" size={24} color="white" />
+                    </View>
+                    <Text style={styles.actionText}>Egzersiz Takibi</Text>
+                  </TouchableOpacity>
+                </View>
+              </Card.Content>
+            </Card>
           </View>
         )}
       </ScrollView>
@@ -600,12 +661,36 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   actionButton: {
-    flex: 1,
-    marginHorizontal: 4,
+    width: '48%',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    marginBottom: 16,
+    elevation: 2,
   },
   editButton: {
     flex: 1,
     borderColor: '#4caf50',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    marginTop: 16,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 4,
   },
 });
 

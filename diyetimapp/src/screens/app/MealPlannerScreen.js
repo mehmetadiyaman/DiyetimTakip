@@ -347,6 +347,14 @@ const MealPlannerScreen = ({ navigation, route }) => {
         >
           Tarifler
         </Button>
+        <Button 
+          mode="contained" 
+          icon="run" 
+          onPress={() => navigation.navigate('ExerciseTracking')}
+          style={styles.navButton}
+        >
+          Egzersiz
+        </Button>
       </View>
       
       <Calendar

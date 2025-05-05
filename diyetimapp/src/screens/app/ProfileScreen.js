@@ -19,6 +19,7 @@ import {
   Divider,
   Switch
 } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { apiRequest } from '../../api/config';
 
@@ -257,33 +258,34 @@ const ProfileScreen = ({ navigation }) => {
       
       <Card style={styles.card}>
         <Card.Content>
-          <Title style={styles.sectionTitle}>Bildirim Ayarları</Title>
+          <View style={styles.cardHeader}>
+            <Title style={styles.sectionTitle}>Bildirim Ayarları</Title>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('NotificationSettings')}
+              style={styles.linkButton}
+            >
+              <Ionicons name="notifications-outline" size={18} color="#4caf50" style={{marginRight: 4}} />
+              <Text style={styles.linkText}>Tüm Ayarlar</Text>
+            </TouchableOpacity>
+          </View>
           
-          <View style={styles.switchContainer}>
-            <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>E-posta Bildirimleri</Text>
-              <Text style={styles.switchDescription}>Randevu ve diğer konularda e-posta al</Text>
-            </View>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingText}>E-posta Bildirimleri</Text>
             <Switch
               value={emailNotifications}
               onValueChange={setEmailNotifications}
+              disabled={!editing || saving}
               color="#4caf50"
-              disabled={!editing}
             />
           </View>
           
-          <Divider style={styles.divider} />
-          
-          <View style={styles.switchContainer}>
-            <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>Uygulama Bildirimleri</Text>
-              <Text style={styles.switchDescription}>Randevu ve diğer konularda bildirim al</Text>
-            </View>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingText}>Uygulama Bildirimleri</Text>
             <Switch
               value={pushNotifications}
               onValueChange={setPushNotifications}
+              disabled={!editing || saving}
               color="#4caf50"
-              disabled={!editing}
             />
           </View>
         </Card.Content>
@@ -404,25 +406,30 @@ const styles = StyleSheet.create({
   editButton: {
     marginTop: 16,
   },
-  switchContainer: {
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  linkButton: {
+    padding: 8,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  linkText: {
+    color: '#4caf50',
+    fontSize: 16,
+  },
+  settingRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 8,
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  switchInfo: {
-    flex: 1,
-  },
-  switchLabel: {
+  settingText: {
     fontSize: 16,
     color: '#333',
-  },
-  switchDescription: {
-    fontSize: 14,
-    color: '#757575',
-  },
-  divider: {
-    marginVertical: 12,
   },
   securityButton: {
     marginBottom: 12,
