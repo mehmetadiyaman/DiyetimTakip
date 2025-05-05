@@ -185,6 +185,12 @@ export const FeedbackProvider = ({ children }) => {
     showToastError,
     showToastWarning,
     showToastInfo,
+    
+    // Shorthands
+    showSuccess: showToastSuccess,
+    showError: showToastError,
+    showWarning: showToastWarning,
+    showInfo: showToastInfo,
   };
 
   return (

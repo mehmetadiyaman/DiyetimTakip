@@ -21,6 +21,11 @@ import MeasurementsScreen from '../screens/app/MeasurementsScreen';
 import ProfileScreen from '../screens/app/ProfileScreen';
 import { commonStyles } from '../themes';
 
+// New Screens
+import FoodItemsScreen from '../screens/app/FoodItemsScreen';
+import RecipesScreen from '../screens/app/RecipesScreen';
+import MealPlannerScreen from '../screens/app/MealPlannerScreen';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -64,6 +69,8 @@ const AppTabs = () => (
           iconName = focused ? 'people' : 'people-outline';
         } else if (route.name === 'Appointments') {
           iconName = focused ? 'calendar' : 'calendar-outline';
+        } else if (route.name === 'MealPlanner') {
+          iconName = focused ? 'restaurant' : 'restaurant-outline';
         } else if (route.name === 'Profile') {
           iconName = focused ? 'person' : 'person-outline';
         }
@@ -104,6 +111,11 @@ const AppTabs = () => (
       name="Clients" 
       component={ClientsStack} 
       options={{ title: 'Danışanlar', headerShown: false }} 
+    />
+    <Tab.Screen 
+      name="MealPlanner" 
+      component={MealPlannerStack} 
+      options={{ title: 'Beslenme', headerShown: false }} 
     />
     <Tab.Screen 
       name="Appointments" 
@@ -159,6 +171,11 @@ const ClientsStack = () => (
       component={DietPlansScreen} 
       options={({ route }) => ({ title: `${route.params?.clientName ? route.params.clientName + ' - ' : ''}Diyet Planları` })} 
     />
+    <ClientsStackNav.Screen 
+      name="ClientMealPlanner" 
+      component={MealPlannerScreen} 
+      options={({ route }) => ({ title: `${route.params?.clientName ? route.params.clientName + ' - ' : ''}Beslenme Takibi` })} 
+    />
   </ClientsStackNav.Navigator>
 );
 
@@ -172,6 +189,28 @@ const AppointmentsStack = () => (
       options={{ title: 'Randevular' }} 
     />
   </AppointmentsStackNav.Navigator>
+);
+
+// Meal Planner Stack
+const MealPlannerStackNav = createStackNavigator();
+const MealPlannerStack = () => (
+  <MealPlannerStackNav.Navigator screenOptions={stackScreenOptions}>
+    <MealPlannerStackNav.Screen 
+      name="MealPlannerMain" 
+      component={MealPlannerScreen} 
+      options={{ title: 'Beslenme Takibi' }} 
+    />
+    <MealPlannerStackNav.Screen 
+      name="FoodItems" 
+      component={FoodItemsScreen} 
+      options={{ title: 'Besin Havuzu' }} 
+    />
+    <MealPlannerStackNav.Screen 
+      name="Recipes" 
+      component={RecipesScreen} 
+      options={{ title: 'Tarifler' }} 
+    />
+  </MealPlannerStackNav.Navigator>
 );
 
 // Main App Navigator
