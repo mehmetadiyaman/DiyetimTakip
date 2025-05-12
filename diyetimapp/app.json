@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
     "jsEngine": "jsc",
     "sdkVersion": "53.0.0",
     "splash": {
