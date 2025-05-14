@@ -844,6 +844,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Profil Resmi Yükleme Endpoint'i - Mobil uygulama için özel endpoint
+  app.post('/api/upload/profile', authenticate, upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      console.log('Profil resmi upload çağrıldı, req.file:', req.file ? 'Dosya var' : 'Dosya yok');
+      
+      if (!req.file) {
+        console.error('Profil resmi yükleme: Dosya eksik');
+        return res.status(400).json({ message: 'Dosya yüklenmedi veya form-data içinde file alanı bulunamadı' });
+      }
+      
+      console.log('Profil resmi bilgileri:', {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
+      
+      // Profil resimleri için özel klasör
+      const folder = 'profiles';
+      
+      try {
+        const fileUrl = await storage.uploadFile(req.file, folder);
+        console.log('Profil resmi yükleme başarılı, URL:', fileUrl);
+        
+        // Profil resmini güncelleyen kullanıcı ise kullanıcı profil resmini de güncelle
+        try {
+          await storage.updateUser(res.locals.userId, { profilePicture: fileUrl });
+        } catch (userUpdateError) {
+          console.error('Kullanıcı profil resmi güncelleme hatası (önemli değil):', userUpdateError);
+          // Bu hatayı yutuyoruz, kritik değil
+        }
+        
+        res.status(201).json({ 
+          url: fileUrl,
+          success: true 
+        });
+      } catch (uploadError) {
+        console.error('Profil resmi Cloudinary Upload Hatası:', uploadError);
+        res.status(500).json({ message: `Cloudinary'ye profil resmi yükleme hatası: ${uploadError instanceof Error ? uploadError.message : 'Bilinmeyen hata'}` });
+      }
+    } catch (error) {
+      console.error('Profil resmi yükleme hatası:', error);
+      res.status(500).json({ message: `Profil resmi yüklenirken bir hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}` });
+    }
+  });
+
   // TELEGRAM BOT ROUTES
   const telegramService = TelegramService.getInstance();
 
