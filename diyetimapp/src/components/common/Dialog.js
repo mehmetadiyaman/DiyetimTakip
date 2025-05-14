@@ -11,7 +11,6 @@ import {
   Platform,
   Dimensions
 } from 'react-native';
-import { Portal } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../themes/theme';
 
@@ -152,62 +151,60 @@ const Dialog = ({
   }
 
   return (
-    <Portal>
-      <Modal
-        transparent
-        visible={isVisible}
-        onRequestClose={() => {
-          if (dismissableBackButton) {
+    <Modal
+      transparent
+      visible={isVisible}
+      onRequestClose={() => {
+        if (dismissableBackButton) {
+          onDismiss && onDismiss();
+        }
+      }}
+    >
+      <TouchableOpacity
+        style={[
+          styles.backdrop,
+          centered && styles.backdropCentered
+        ]}
+        activeOpacity={1}
+        onPress={() => {
+          if (dismissable) {
             onDismiss && onDismiss();
           }
         }}
       >
-        <TouchableOpacity
+        <Animated.View 
           style={[
-            styles.backdrop,
-            centered && styles.backdropCentered
+            styles.dialogContainer,
+            centered && styles.dialogCentered,
+            getAnimatedStyle()
           ]}
-          activeOpacity={1}
-          onPress={() => {
-            if (dismissable) {
-              onDismiss && onDismiss();
-            }
-          }}
         >
-          <Animated.View 
-            style={[
-              styles.dialogContainer,
-              centered && styles.dialogCentered,
-              getAnimatedStyle()
-            ]}
-          >
-            <TouchableOpacity activeOpacity={1} style={styles.dialog}>
-              {dialogIcon && (
-                <View style={styles.iconContainer}>
-                  <Ionicons name={dialogIcon} size={36} color={dialogIconColor} />
-                </View>
-              )}
-              
-              {title && <Text style={styles.title}>{title}</Text>}
-              
-              {content && (
-                typeof content === 'string' ? (
-                  <Text style={styles.content}>{content}</Text>
-                ) : (
-                  <View style={styles.contentContainer}>{content}</View>
-                )
-              )}
-              
-              {actions && (
-                <View style={styles.actions}>
-                  {actions}
-                </View>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
-        </TouchableOpacity>
-      </Modal>
-    </Portal>
+          <TouchableOpacity activeOpacity={1} style={styles.dialog}>
+            {dialogIcon && (
+              <View style={styles.iconContainer}>
+                <Ionicons name={dialogIcon} size={36} color={dialogIconColor} />
+              </View>
+            )}
+            
+            {title && <Text style={styles.title}>{title}</Text>}
+            
+            {content && (
+              typeof content === 'string' ? (
+                <Text style={styles.content}>{content}</Text>
+              ) : (
+                <View style={styles.contentContainer}>{content}</View>
+              )
+            )}
+            
+            {actions && (
+              <View style={styles.actions}>
+                {actions}
+              </View>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+      </TouchableOpacity>
+    </Modal>
   );
 };
 

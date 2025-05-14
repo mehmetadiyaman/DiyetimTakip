@@ -145,6 +145,72 @@ const ClientDetailsScreen = ({ navigation, route }) => {
     navigation.goBack();
   };
 
+  const navigateToMeasurements = () => {
+    navigation.navigate('Measurements', { 
+      clientId: clientId,
+      clientName: client?.name
+    });
+  };
+
+  const navigateToDietPlans = () => {
+    navigation.navigate('DietPlans', { 
+      clientId: clientId,
+      clientName: client?.name
+    });
+  };
+
+  const navigateToProgress = () => {
+    navigation.navigate('ClientProgress', { 
+      clientId: clientId,
+      clientName: client?.name
+    });
+  };
+
+  const navigateToMealCompliance = () => {
+    navigation.navigate('MealCompliance', { 
+      clientId: clientId,
+      clientName: client?.name
+    });
+  };
+
+  // Client actions buttons
+  const renderClientActions = () => (
+    <View style={styles.actionsContainer}>
+      <Button 
+        mode="contained" 
+        icon="ruler" 
+        onPress={navigateToMeasurements}
+        style={styles.actionButton}
+      >
+        Ölçümler
+      </Button>
+      <Button 
+        mode="contained" 
+        icon="food-apple" 
+        onPress={navigateToDietPlans}
+        style={styles.actionButton}
+      >
+        Diyet Planları
+      </Button>
+      <Button 
+        mode="contained" 
+        icon="chart-line" 
+        onPress={navigateToProgress}
+        style={styles.actionButton}
+      >
+        İlerleme
+      </Button>
+      <Button 
+        mode="contained" 
+        icon="clipboard-check" 
+        onPress={navigateToMealCompliance}
+        style={styles.actionButton}
+      >
+        Beslenme Uyumu
+      </Button>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>

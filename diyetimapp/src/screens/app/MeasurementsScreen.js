@@ -14,7 +14,6 @@ import {
   Button, 
   FAB,
   Dialog,
-  Portal,
   TextInput,
   Divider,
   IconButton,
@@ -468,111 +467,109 @@ const MeasurementsScreen = ({ route, navigation }) => {
       />
       
       {/* Yeni Ölçüm Ekleme Dialog */}
-      <Portal>
-        <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)}>
-          <Dialog.Title>Yeni Ölçüm Ekle</Dialog.Title>
-          <Dialog.Content>
+      <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)}>
+        <Dialog.Title>Yeni Ölçüm Ekle</Dialog.Title>
+        <Dialog.Content>
+          <TextInput
+            label="Tarih"
+            value={newMeasurement.date}
+            onChangeText={(text) => setNewMeasurement({...newMeasurement, date: text})}
+            mode="outlined"
+            style={styles.input}
+            placeholder="YYYY-MM-DD"
+          />
+          
+          <TextInput
+            label="Kilo (kg) *"
+            value={newMeasurement.weight}
+            onChangeText={(text) => setNewMeasurement({...newMeasurement, weight: text})}
+            mode="outlined"
+            keyboardType="numeric"
+            style={styles.input}
+            error={!!errors.weight}
+          />
+          {errors.weight && <HelperText type="error">{errors.weight}</HelperText>}
+          
+          <TextInput
+            label="Vücut Yağı (%)"
+            value={newMeasurement.bodyFat}
+            onChangeText={(text) => setNewMeasurement({...newMeasurement, bodyFat: text})}
+            mode="outlined"
+            keyboardType="numeric"
+            style={styles.input}
+            error={!!errors.bodyFat}
+          />
+          {errors.bodyFat && <HelperText type="error">{errors.bodyFat}</HelperText>}
+          
+          <View style={styles.rowInputs}>
             <TextInput
-              label="Tarih"
-              value={newMeasurement.date}
-              onChangeText={(text) => setNewMeasurement({...newMeasurement, date: text})}
-              mode="outlined"
-              style={styles.input}
-              placeholder="YYYY-MM-DD"
-            />
-            
-            <TextInput
-              label="Kilo (kg) *"
-              value={newMeasurement.weight}
-              onChangeText={(text) => setNewMeasurement({...newMeasurement, weight: text})}
-              mode="outlined"
-              keyboardType="numeric"
-              style={styles.input}
-              error={!!errors.weight}
-            />
-            {errors.weight && <HelperText type="error">{errors.weight}</HelperText>}
-            
-            <TextInput
-              label="Vücut Yağı (%)"
-              value={newMeasurement.bodyFat}
-              onChangeText={(text) => setNewMeasurement({...newMeasurement, bodyFat: text})}
-              mode="outlined"
-              keyboardType="numeric"
-              style={styles.input}
-              error={!!errors.bodyFat}
-            />
-            {errors.bodyFat && <HelperText type="error">{errors.bodyFat}</HelperText>}
-            
-            <View style={styles.rowInputs}>
-              <TextInput
-                label="Göğüs (cm)"
-                value={newMeasurement.chest}
-                onChangeText={(text) => setNewMeasurement({...newMeasurement, chest: text})}
-                mode="outlined"
-                keyboardType="numeric"
-                style={[styles.input, styles.halfInput]}
-                error={!!errors.chest}
-              />
-              
-              <TextInput
-                label="Bel (cm)"
-                value={newMeasurement.waist}
-                onChangeText={(text) => setNewMeasurement({...newMeasurement, waist: text})}
-                mode="outlined"
-                keyboardType="numeric"
-                style={[styles.input, styles.halfInput]}
-                error={!!errors.waist}
-              />
-            </View>
-            
-            <View style={styles.rowInputs}>
-              <TextInput
-                label="Kalça (cm)"
-                value={newMeasurement.hips}
-                onChangeText={(text) => setNewMeasurement({...newMeasurement, hips: text})}
-                mode="outlined"
-                keyboardType="numeric"
-                style={[styles.input, styles.halfInput]}
-                error={!!errors.hips}
-              />
-              
-              <TextInput
-                label="Kol (cm)"
-                value={newMeasurement.arm}
-                onChangeText={(text) => setNewMeasurement({...newMeasurement, arm: text})}
-                mode="outlined"
-                keyboardType="numeric"
-                style={[styles.input, styles.halfInput]}
-                error={!!errors.arm}
-              />
-            </View>
-            
-            <TextInput
-              label="Bacak (cm)"
-              value={newMeasurement.thigh}
-              onChangeText={(text) => setNewMeasurement({...newMeasurement, thigh: text})}
+              label="Göğüs (cm)"
+              value={newMeasurement.chest}
+              onChangeText={(text) => setNewMeasurement({...newMeasurement, chest: text})}
               mode="outlined"
               keyboardType="numeric"
-              style={styles.input}
-              error={!!errors.thigh}
+              style={[styles.input, styles.halfInput]}
+              error={!!errors.chest}
             />
             
             <TextInput
-              label="Notlar"
-              value={newMeasurement.notes}
-              onChangeText={(text) => setNewMeasurement({...newMeasurement, notes: text})}
+              label="Bel (cm)"
+              value={newMeasurement.waist}
+              onChangeText={(text) => setNewMeasurement({...newMeasurement, waist: text})}
               mode="outlined"
-              multiline
-              numberOfLines={3}
-              style={[styles.input, styles.textArea]}
+              keyboardType="numeric"
+              style={[styles.input, styles.halfInput]}
+              error={!!errors.waist}
             />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setDialogVisible(false)}>İptal</Button>
-            <Button onPress={saveMeasurement}>Kaydet</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+          </View>
+          
+          <View style={styles.rowInputs}>
+            <TextInput
+              label="Kalça (cm)"
+              value={newMeasurement.hips}
+              onChangeText={(text) => setNewMeasurement({...newMeasurement, hips: text})}
+              mode="outlined"
+              keyboardType="numeric"
+              style={[styles.input, styles.halfInput]}
+              error={!!errors.hips}
+            />
+            
+            <TextInput
+              label="Kol (cm)"
+              value={newMeasurement.arm}
+              onChangeText={(text) => setNewMeasurement({...newMeasurement, arm: text})}
+              mode="outlined"
+              keyboardType="numeric"
+              style={[styles.input, styles.halfInput]}
+              error={!!errors.arm}
+            />
+          </View>
+          
+          <TextInput
+            label="Bacak (cm)"
+            value={newMeasurement.thigh}
+            onChangeText={(text) => setNewMeasurement({...newMeasurement, thigh: text})}
+            mode="outlined"
+            keyboardType="numeric"
+            style={styles.input}
+            error={!!errors.thigh}
+          />
+          
+          <TextInput
+            label="Notlar"
+            value={newMeasurement.notes}
+            onChangeText={(text) => setNewMeasurement({...newMeasurement, notes: text})}
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+            style={[styles.input, styles.textArea]}
+          />
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={() => setDialogVisible(false)}>İptal</Button>
+          <Button onPress={saveMeasurement}>Kaydet</Button>
+        </Dialog.Actions>
+      </Dialog>
     </View>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Text } from 'react-native';
-import { Searchbar, FAB, Card, Title, Paragraph, Button, Dialog, Portal, TextInput, Chip, Divider, List, IconButton, HelperText } from 'react-native-paper';
+import { Searchbar, FAB, Card, Title, Paragraph, Button, Dialog, TextInput, Chip, Divider, List, IconButton, HelperText } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { post, get, put, del } from '../../api/config';
@@ -293,187 +293,183 @@ const RecipesScreen = ({ navigation }) => {
       />
       
       {/* Recipe Edit Dialog */}
-      <Portal>
-        <Dialog visible={visible} onDismiss={hideDialog} style={styles.dialog}>
-          <Dialog.Title>{editMode ? 'Tarif Düzenle' : 'Yeni Tarif Ekle'}</Dialog.Title>
-          <Dialog.ScrollArea style={styles.scrollArea}>
-            <ScrollView>
-              <View style={styles.dialogContent}>
+      <Dialog visible={visible} onDismiss={hideDialog} style={styles.dialog}>
+        <Dialog.Title>{editMode ? 'Tarif Düzenle' : 'Yeni Tarif Ekle'}</Dialog.Title>
+        <Dialog.ScrollArea style={styles.scrollArea}>
+          <ScrollView>
+            <View style={styles.dialogContent}>
+              <TextInput
+                label="Tarif Adı"
+                value={name}
+                onChangeText={setName}
+                style={styles.input}
+              />
+              
+              <TextInput
+                label="Açıklama"
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={2}
+                style={styles.input}
+              />
+              
+              <TextInput
+                label="Kategori"
+                value={category}
+                onChangeText={setCategory}
+                style={styles.input}
+              />
+              
+              <View style={styles.inputRow}>
                 <TextInput
-                  label="Tarif Adı"
-                  value={name}
-                  onChangeText={setName}
-                  style={styles.input}
+                  label="Hazırlama Süresi (dk)"
+                  value={preparationTime}
+                  onChangeText={setPreparationTime}
+                  keyboardType="numeric"
+                  style={[styles.input, { flex: 1, marginRight: 8 }]}
                 />
                 
                 <TextInput
-                  label="Açıklama"
-                  value={description}
-                  onChangeText={setDescription}
-                  multiline
-                  numberOfLines={2}
-                  style={styles.input}
-                />
-                
-                <TextInput
-                  label="Kategori"
-                  value={category}
-                  onChangeText={setCategory}
-                  style={styles.input}
-                />
-                
-                <View style={styles.inputRow}>
-                  <TextInput
-                    label="Hazırlama Süresi (dk)"
-                    value={preparationTime}
-                    onChangeText={setPreparationTime}
-                    keyboardType="numeric"
-                    style={[styles.input, { flex: 1, marginRight: 8 }]}
-                  />
-                  
-                  <TextInput
-                    label="Porsiyon Sayısı"
-                    value={servings}
-                    onChangeText={setServings}
-                    keyboardType="numeric"
-                    style={[styles.input, { flex: 1 }]}
-                  />
-                </View>
-                
-                <View style={styles.sectionHeader}>
-                  <Title style={styles.sectionTitle}>Malzemeler</Title>
-                  <Button 
-                    mode="contained" 
-                    onPress={() => showFoodDialog()} 
-                    style={styles.addButton}
-                  >
-                    Ekle
-                  </Button>
-                </View>
-                
-                {ingredients.length === 0 ? (
-                  <Text style={styles.emptyText}>Henüz malzeme eklenmedi</Text>
-                ) : (
-                  ingredients.map((ingredient, index) => (
-                    <List.Item
-                      key={`${ingredient.foodId}-${index}`}
-                      title={ingredient.foodName}
-                      description={`${ingredient.quantity} ${ingredient.unit} - ${ingredient.calories} kcal`}
-                      left={props => <List.Icon {...props} icon="food" />}
-                      right={props => (
-                        <View style={styles.rowActions}>
-                          <IconButton
-                            icon="pencil"
-                            size={20}
-                            onPress={() => showFoodDialog(index)}
-                          />
-                          <IconButton
-                            icon="delete"
-                            size={20}
-                            color={theme.palette.error.main}
-                            onPress={() => handleRemoveIngredient(index)}
-                          />
-                        </View>
-                      )}
-                      style={styles.ingredientItem}
-                    />
-                  ))
-                )}
-                
-                <TextInput
-                  label="Hazırlanışı"
-                  value={instructions}
-                  onChangeText={setInstructions}
-                  multiline
-                  numberOfLines={4}
-                  style={styles.input}
+                  label="Porsiyon Sayısı"
+                  value={servings}
+                  onChangeText={setServings}
+                  keyboardType="numeric"
+                  style={[styles.input, { flex: 1 }]}
                 />
               </View>
-            </ScrollView>
-          </Dialog.ScrollArea>
-          <Dialog.Actions>
-            <Button onPress={hideDialog}>İptal</Button>
-            <Button onPress={handleSave} disabled={!name || ingredients.length === 0}>Kaydet</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+              
+              <View style={styles.sectionHeader}>
+                <Title style={styles.sectionTitle}>Malzemeler</Title>
+                <Button 
+                  mode="contained" 
+                  onPress={() => showFoodDialog()} 
+                  style={styles.addButton}
+                >
+                  Ekle
+                </Button>
+              </View>
+              
+              {ingredients.length === 0 ? (
+                <Text style={styles.emptyText}>Henüz malzeme eklenmedi</Text>
+              ) : (
+                ingredients.map((ingredient, index) => (
+                  <List.Item
+                    key={`${ingredient.foodId}-${index}`}
+                    title={ingredient.foodName}
+                    description={`${ingredient.quantity} ${ingredient.unit} - ${ingredient.calories} kcal`}
+                    left={props => <List.Icon {...props} icon="food" />}
+                    right={props => (
+                      <View style={styles.rowActions}>
+                        <IconButton
+                          icon="pencil"
+                          size={20}
+                          onPress={() => showFoodDialog(index)}
+                        />
+                        <IconButton
+                          icon="delete"
+                          size={20}
+                          color={theme.palette.error.main}
+                          onPress={() => handleRemoveIngredient(index)}
+                        />
+                      </View>
+                    )}
+                    style={styles.ingredientItem}
+                  />
+                ))
+              )}
+              
+              <TextInput
+                label="Hazırlanışı"
+                value={instructions}
+                onChangeText={setInstructions}
+                multiline
+                numberOfLines={4}
+                style={styles.input}
+              />
+            </View>
+          </ScrollView>
+        </Dialog.ScrollArea>
+        <Dialog.Actions>
+          <Button onPress={hideDialog}>İptal</Button>
+          <Button onPress={handleSave} disabled={!name || ingredients.length === 0}>Kaydet</Button>
+        </Dialog.Actions>
+      </Dialog>
       
       {/* Food Selection Dialog */}
-      <Portal>
-        <Dialog visible={foodDialogVisible} onDismiss={hideFoodDialog}>
-          <Dialog.Title>Malzeme Ekle</Dialog.Title>
-          <Dialog.Content>
-            {selectedFood ? (
-              <>
-                <View style={styles.selectedFoodContainer}>
-                  <Title>{selectedFood.name}</Title>
-                  <Button onPress={() => setSelectedFood(null)}>Değiştir</Button>
-                </View>
-                
-                <View style={styles.inputRow}>
-                  <TextInput
-                    label="Miktar"
-                    value={quantity}
-                    onChangeText={setQuantity}
-                    keyboardType="numeric"
-                    style={[styles.input, { flex: 2, marginRight: 8 }]}
-                  />
-                  
-                  <TextInput
-                    label="Birim"
-                    value={unit}
-                    onChangeText={setUnit}
-                    style={[styles.input, { flex: 1 }]}
-                  />
-                </View>
-                
-                {quantity && parseFloat(quantity) > 0 && selectedFood && (
-                  <View style={styles.nutritionPreview}>
-                    <Text style={styles.nutritionPreviewTitle}>Besin Değerleri:</Text>
-                    <View style={styles.nutritionPreviewItems}>
-                      <Text>Kalori: {Math.round(selectedFood.calories * parseFloat(quantity) / 100)} kcal</Text>
-                      <Text>Protein: {(selectedFood.protein * parseFloat(quantity) / 100).toFixed(1)}g</Text>
-                      <Text>Karb: {(selectedFood.carbs * parseFloat(quantity) / 100).toFixed(1)}g</Text>
-                      <Text>Yağ: {(selectedFood.fat * parseFloat(quantity) / 100).toFixed(1)}g</Text>
-                    </View>
-                  </View>
-                )}
-              </>
-            ) : (
-              <>
-                <Searchbar
-                  placeholder="Besin ara..."
-                  onChangeText={setFoodSearchQuery}
-                  value={foodSearchQuery}
-                  style={styles.foodSearchBar}
+      <Dialog visible={foodDialogVisible} onDismiss={hideFoodDialog}>
+        <Dialog.Title>Malzeme Ekle</Dialog.Title>
+        <Dialog.Content>
+          {selectedFood ? (
+            <>
+              <View style={styles.selectedFoodContainer}>
+                <Title>{selectedFood.name}</Title>
+                <Button onPress={() => setSelectedFood(null)}>Değiştir</Button>
+              </View>
+              
+              <View style={styles.inputRow}>
+                <TextInput
+                  label="Miktar"
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="numeric"
+                  style={[styles.input, { flex: 2, marginRight: 8 }]}
                 />
                 
-                <ScrollView style={styles.foodList}>
-                  {filteredFoods.map((food) => (
-                    <TouchableOpacity
-                      key={food._id}
-                      style={styles.foodItem}
-                      onPress={() => handleSelectFood(food)}
-                    >
-                      <Text style={styles.foodName}>{food.name}</Text>
-                      <Text style={styles.foodCalories}>{food.calories} kcal/100g</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={hideFoodDialog}>İptal</Button>
-            <Button 
-              onPress={handleAddIngredient} 
-              disabled={!selectedFood || !quantity || parseFloat(quantity) <= 0}
-            >
-              Ekle
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+                <TextInput
+                  label="Birim"
+                  value={unit}
+                  onChangeText={setUnit}
+                  style={[styles.input, { flex: 1 }]}
+                />
+              </View>
+              
+              {quantity && parseFloat(quantity) > 0 && selectedFood && (
+                <View style={styles.nutritionPreview}>
+                  <Text style={styles.nutritionPreviewTitle}>Besin Değerleri:</Text>
+                  <View style={styles.nutritionPreviewItems}>
+                    <Text>Kalori: {Math.round(selectedFood.calories * parseFloat(quantity) / 100)} kcal</Text>
+                    <Text>Protein: {(selectedFood.protein * parseFloat(quantity) / 100).toFixed(1)}g</Text>
+                    <Text>Karb: {(selectedFood.carbs * parseFloat(quantity) / 100).toFixed(1)}g</Text>
+                    <Text>Yağ: {(selectedFood.fat * parseFloat(quantity) / 100).toFixed(1)}g</Text>
+                  </View>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              <Searchbar
+                placeholder="Besin ara..."
+                onChangeText={setFoodSearchQuery}
+                value={foodSearchQuery}
+                style={styles.foodSearchBar}
+              />
+              
+              <ScrollView style={styles.foodList}>
+                {filteredFoods.map((food) => (
+                  <TouchableOpacity
+                    key={food._id}
+                    style={styles.foodItem}
+                    onPress={() => handleSelectFood(food)}
+                  >
+                    <Text style={styles.foodName}>{food.name}</Text>
+                    <Text style={styles.foodCalories}>{food.calories} kcal/100g</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          )}
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={hideFoodDialog}>İptal</Button>
+          <Button 
+            onPress={handleAddIngredient} 
+            disabled={!selectedFood || !quantity || parseFloat(quantity) <= 0}
+          >
+            Ekle
+          </Button>
+        </Dialog.Actions>
+      </Dialog>
     </View>
   );
 };
