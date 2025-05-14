@@ -186,7 +186,7 @@ const DashboardScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('DietPlans')}
           >
             <View style={[styles.iconContainer, { backgroundColor: '#FFF8E1' }]}>
-              <Ionicons name="restaurant" size={20} color="#FFC107" />
+              <Ionicons name="nutrition" size={20} color="#FFC107" />
             </View>
             <Text style={styles.statTitle}>Aktif Diyet Planları</Text>
             <Text style={styles.statValue}>{dashboardData.clients.filter(c => c.status === 'active').length || 0}</Text>
@@ -291,7 +291,7 @@ const DashboardScreen = ({ navigation }) => {
                       iconColor = theme.palette.primary.main;
                       iconBg = '#E8F5E9';
                     } else if (activity.type.includes('diet')) {
-                      iconName = 'restaurant';
+                      iconName = 'nutrition';
                       iconColor = '#FFC107';
                       iconBg = '#FFF8E1';
                     } else if (activity.type.includes('appointment')) {

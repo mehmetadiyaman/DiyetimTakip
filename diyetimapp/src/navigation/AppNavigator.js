@@ -155,8 +155,8 @@ const AppTabs = () => (
           iconName = focused ? 'people' : 'people-outline';
         } else if (route.name === 'Appointments') {
           iconName = focused ? 'calendar' : 'calendar-outline';
-        } else if (route.name === 'MealPlanner') {
-          iconName = focused ? 'restaurant' : 'restaurant-outline';
+        } else if (route.name === 'DietPlans') {
+          iconName = focused ? 'nutrition' : 'nutrition-outline';
         } else if (route.name === 'Profile') {
           iconName = focused ? 'person' : 'person-outline';
         }
@@ -242,10 +242,10 @@ const AppTabs = () => (
       }} 
     />
     <Tab.Screen 
-      name="MealPlanner" 
-      component={MealPlannerStack} 
+      name="DietPlans" 
+      component={DietPlansStack} 
       options={{ 
-        title: 'Beslenme', 
+        title: 'Diyet Planları', 
         headerShown: false,
       }} 
     />
@@ -303,7 +303,18 @@ const ClientsStack = () => (
     <ClientsStackNav.Screen 
       name="ClientDetails" 
       component={ClientDetailsScreen} 
-      options={({ route }) => ({ title: route.params?.clientName || 'Danışan Detayları' })} 
+      options={({ route }) => ({ 
+        title: route.params?.clientName || 'Danışan Detayları',
+        headerLeft: () => null,
+        headerTitleStyle: {
+          ...stackScreenOptions.headerTitleStyle,
+          fontSize: undefined,
+          fontWeight: '700',
+          adjustsFontSizeToFit: true,
+          maxFontSizeMultiplier: 1.2,
+          numberOfLines: 1,
+        }
+      })} 
     />
     <ClientsStackNav.Screen 
       name="Measurements" 
@@ -371,6 +382,36 @@ const MealPlannerStack = () => (
       options={{ title: 'Egzersiz Takibi' }} 
     />
   </MealPlannerStackNav.Navigator>
+);
+
+// Diet Plans Stack
+const DietPlansStackNav = createStackNavigator();
+const DietPlansStack = () => (
+  <DietPlansStackNav.Navigator screenOptions={stackScreenOptions}>
+    <DietPlansStackNav.Screen 
+      name="DietPlansMain" 
+      component={DietPlansScreen} 
+      options={{ 
+        title: 'Diyet Planları',
+        headerLeft: () => null,
+      }} 
+    />
+    <DietPlansStackNav.Screen 
+      name="FoodItems" 
+      component={FoodItemsScreen} 
+      options={{ title: 'Besin Havuzu' }} 
+    />
+    <DietPlansStackNav.Screen 
+      name="Recipes" 
+      component={RecipesScreen} 
+      options={{ title: 'Tarifler' }} 
+    />
+    <DietPlansStackNav.Screen 
+      name="MealPlanner" 
+      component={MealPlannerScreen} 
+      options={{ title: 'Beslenme Takibi' }} 
+    />
+  </DietPlansStackNav.Navigator>
 );
 
 // Profile Stack
