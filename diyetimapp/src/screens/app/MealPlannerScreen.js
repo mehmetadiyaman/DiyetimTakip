@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Text, ActivityIndicator } from 'react-native';
-import { Card, Title, Paragraph, Button, FAB, Dialog, Portal, TextInput, Divider, List, IconButton, Chip, SegmentedButtons } from 'react-native-paper';
+import { Card, Title, Paragraph, Button, FAB, Dialog, TextInput, Divider, List, IconButton, Chip, SegmentedButtons } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { Calendar } from 'react-native-calendars';
 import { useAuth } from '../../hooks/useAuth';
@@ -504,241 +504,235 @@ const MealPlannerScreen = ({ navigation, route }) => {
       )}
       
       {/* Add Meal Dialog */}
-      <Portal>
-        <Dialog visible={addMealVisible} onDismiss={hideAddMealDialog} style={styles.dialog}>
-          <Dialog.Title>Yeni Öğün Ekle</Dialog.Title>
-          <Dialog.ScrollArea style={styles.scrollArea}>
-            <ScrollView>
-              <View style={styles.dialogContent}>
-                <TextInput
-                  label="Öğün Adı"
-                  value={mealName}
-                  onChangeText={setMealName}
-                  style={styles.input}
-                />
-                
-                <View style={styles.sectionHeader}>
-                  <Title style={styles.sectionTitle}>Besinler</Title>
-                  <Button 
-                    mode="contained" 
-                    onPress={() => showFoodDialog()} 
-                    style={styles.addButton}
-                  >
-                    Ekle
-                  </Button>
-                </View>
-                
-                {mealFoods.length === 0 ? (
-                  <Text style={styles.emptyText}>Henüz besin eklenmedi</Text>
-                ) : (
-                  mealFoods.map((food, index) => (
-                    <List.Item
-                      key={`${food.foodId}-${index}`}
-                      title={food.foodName}
-                      description={`${food.quantity} ${food.unit} - ${food.calories} kcal`}
-                      left={props => <List.Icon {...props} icon="food" />}
-                      right={props => (
-                        <View style={styles.rowActions}>
-                          <IconButton
-                            icon="pencil"
-                            size={20}
-                            onPress={() => showFoodDialog(index)}
-                          />
-                          <IconButton
-                            icon="delete"
-                            size={20}
-                            color={theme.palette.error.main}
-                            onPress={() => handleRemoveFood(index)}
-                          />
-                        </View>
-                      )}
-                      style={styles.ingredientItem}
-                    />
-                  ))
-                )}
-                
-                {mealFoods.length > 0 && (
-                  <View style={styles.nutritionSummary}>
-                    <Text style={styles.nutritionSummaryTitle}>Toplam:</Text>
-                    <Text>
-                      {mealFoods.reduce((sum, food) => sum + food.calories, 0)} kcal | 
-                      {mealFoods.reduce((sum, food) => sum + food.protein, 0).toFixed(1)}g protein | 
-                      {mealFoods.reduce((sum, food) => sum + food.carbs, 0).toFixed(1)}g karb | 
-                      {mealFoods.reduce((sum, food) => sum + food.fat, 0).toFixed(1)}g yağ
-                    </Text>
-                  </View>
-                )}
+      <Dialog visible={addMealVisible} onDismiss={hideAddMealDialog} style={styles.dialog}>
+        <Dialog.Title>Yeni Öğün Ekle</Dialog.Title>
+        <Dialog.ScrollArea style={styles.scrollArea}>
+          <ScrollView>
+            <View style={styles.dialogContent}>
+              <TextInput
+                label="Öğün Adı"
+                value={mealName}
+                onChangeText={setMealName}
+                style={styles.input}
+              />
+              
+              <View style={styles.sectionHeader}>
+                <Title style={styles.sectionTitle}>Besinler</Title>
+                <Button 
+                  mode="contained" 
+                  onPress={() => showFoodDialog()} 
+                  style={styles.addButton}
+                >
+                  Ekle
+                </Button>
               </View>
-            </ScrollView>
-          </Dialog.ScrollArea>
-          <Dialog.Actions>
-            <Button onPress={hideAddMealDialog}>İptal</Button>
-            <Button 
-              onPress={handleSaveMeal} 
-              disabled={!mealName || mealFoods.length === 0}
-            >
-              Kaydet
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+              
+              {mealFoods.length === 0 ? (
+                <Text style={styles.emptyText}>Henüz besin eklenmedi</Text>
+              ) : (
+                mealFoods.map((food, index) => (
+                  <List.Item
+                    key={`${food.foodId}-${index}`}
+                    title={food.foodName}
+                    description={`${food.quantity} ${food.unit} - ${food.calories} kcal`}
+                    left={props => <List.Icon {...props} icon="food" />}
+                    right={props => (
+                      <View style={styles.rowActions}>
+                        <IconButton
+                          icon="pencil"
+                          size={20}
+                          onPress={() => showFoodDialog(index)}
+                        />
+                        <IconButton
+                          icon="delete"
+                          size={20}
+                          color={theme.palette.error.main}
+                          onPress={() => handleRemoveFood(index)}
+                        />
+                      </View>
+                    )}
+                    style={styles.ingredientItem}
+                  />
+                ))
+              )}
+              
+              {mealFoods.length > 0 && (
+                <View style={styles.nutritionSummary}>
+                  <Text style={styles.nutritionSummaryTitle}>Toplam:</Text>
+                  <Text>
+                    {mealFoods.reduce((sum, food) => sum + food.calories, 0)} kcal | 
+                    {mealFoods.reduce((sum, food) => sum + food.protein, 0).toFixed(1)}g protein | 
+                    {mealFoods.reduce((sum, food) => sum + food.carbs, 0).toFixed(1)}g karb | 
+                    {mealFoods.reduce((sum, food) => sum + food.fat, 0).toFixed(1)}g yağ
+                  </Text>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </Dialog.ScrollArea>
+        <Dialog.Actions>
+          <Button onPress={hideAddMealDialog}>İptal</Button>
+          <Button 
+            onPress={handleSaveMeal} 
+            disabled={!mealName || mealFoods.length === 0}
+          >
+            Kaydet
+          </Button>
+        </Dialog.Actions>
+      </Dialog>
       
       {/* Edit Meal Dialog */}
-      <Portal>
-        <Dialog visible={editMealVisible} onDismiss={hideEditMealDialog} style={styles.dialog}>
-          <Dialog.Title>Öğün Düzenle</Dialog.Title>
-          <Dialog.ScrollArea style={styles.scrollArea}>
-            <ScrollView>
-              <View style={styles.dialogContent}>
-                <TextInput
-                  label="Öğün Adı"
-                  value={mealName}
-                  onChangeText={setMealName}
-                  style={styles.input}
-                />
-                
-                <View style={styles.sectionHeader}>
-                  <Title style={styles.sectionTitle}>Besinler</Title>
-                  <Button 
-                    mode="contained" 
-                    onPress={() => showFoodDialog()} 
-                    style={styles.addButton}
-                  >
-                    Ekle
-                  </Button>
-                </View>
-                
-                {mealFoods.length === 0 ? (
-                  <Text style={styles.emptyText}>Henüz besin eklenmedi</Text>
-                ) : (
-                  mealFoods.map((food, index) => (
-                    <List.Item
-                      key={`${food.foodId}-${index}`}
-                      title={food.foodName}
-                      description={`${food.quantity} ${food.unit} - ${food.calories} kcal`}
-                      left={props => <List.Icon {...props} icon="food" />}
-                      right={props => (
-                        <View style={styles.rowActions}>
-                          <IconButton
-                            icon="pencil"
-                            size={20}
-                            onPress={() => showFoodDialog(index)}
-                          />
-                          <IconButton
-                            icon="delete"
-                            size={20}
-                            color={theme.palette.error.main}
-                            onPress={() => handleRemoveFood(index)}
-                          />
-                        </View>
-                      )}
-                      style={styles.ingredientItem}
-                    />
-                  ))
-                )}
-                
-                {mealFoods.length > 0 && (
-                  <View style={styles.nutritionSummary}>
-                    <Text style={styles.nutritionSummaryTitle}>Toplam:</Text>
-                    <Text>
-                      {mealFoods.reduce((sum, food) => sum + food.calories, 0)} kcal | 
-                      {mealFoods.reduce((sum, food) => sum + food.protein, 0).toFixed(1)}g protein | 
-                      {mealFoods.reduce((sum, food) => sum + food.carbs, 0).toFixed(1)}g karb | 
-                      {mealFoods.reduce((sum, food) => sum + food.fat, 0).toFixed(1)}g yağ
-                    </Text>
-                  </View>
-                )}
+      <Dialog visible={editMealVisible} onDismiss={hideEditMealDialog} style={styles.dialog}>
+        <Dialog.Title>Öğün Düzenle</Dialog.Title>
+        <Dialog.ScrollArea style={styles.scrollArea}>
+          <ScrollView>
+            <View style={styles.dialogContent}>
+              <TextInput
+                label="Öğün Adı"
+                value={mealName}
+                onChangeText={setMealName}
+                style={styles.input}
+              />
+              
+              <View style={styles.sectionHeader}>
+                <Title style={styles.sectionTitle}>Besinler</Title>
+                <Button 
+                  mode="contained" 
+                  onPress={() => showFoodDialog()} 
+                  style={styles.addButton}
+                >
+                  Ekle
+                </Button>
               </View>
-            </ScrollView>
-          </Dialog.ScrollArea>
-          <Dialog.Actions>
-            <Button onPress={hideEditMealDialog}>İptal</Button>
-            <Button 
-              onPress={handleUpdateMeal} 
-              disabled={!mealName || mealFoods.length === 0}
-            >
-              Güncelle
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+              
+              {mealFoods.length === 0 ? (
+                <Text style={styles.emptyText}>Henüz besin eklenmedi</Text>
+              ) : (
+                mealFoods.map((food, index) => (
+                  <List.Item
+                    key={`${food.foodId}-${index}`}
+                    title={food.foodName}
+                    description={`${food.quantity} ${food.unit} - ${food.calories} kcal`}
+                    left={props => <List.Icon {...props} icon="food" />}
+                    right={props => (
+                      <View style={styles.rowActions}>
+                        <IconButton
+                          icon="pencil"
+                          size={20}
+                          onPress={() => showFoodDialog(index)}
+                        />
+                        <IconButton
+                          icon="delete"
+                          size={20}
+                          color={theme.palette.error.main}
+                          onPress={() => handleRemoveFood(index)}
+                        />
+                      </View>
+                    )}
+                    style={styles.ingredientItem}
+                  />
+                ))
+              )}
+              
+              {mealFoods.length > 0 && (
+                <View style={styles.nutritionSummary}>
+                  <Text style={styles.nutritionSummaryTitle}>Toplam:</Text>
+                  <Text>
+                    {mealFoods.reduce((sum, food) => sum + food.calories, 0)} kcal | 
+                    {mealFoods.reduce((sum, food) => sum + food.protein, 0).toFixed(1)}g protein | 
+                    {mealFoods.reduce((sum, food) => sum + food.carbs, 0).toFixed(1)}g karb | 
+                    {mealFoods.reduce((sum, food) => sum + food.fat, 0).toFixed(1)}g yağ
+                  </Text>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </Dialog.ScrollArea>
+        <Dialog.Actions>
+          <Button onPress={hideEditMealDialog}>İptal</Button>
+          <Button 
+            onPress={handleUpdateMeal} 
+            disabled={!mealName || mealFoods.length === 0}
+          >
+            Güncelle
+          </Button>
+        </Dialog.Actions>
+      </Dialog>
       
       {/* Food Selection Dialog */}
-      <Portal>
-        <Dialog visible={foodDialogVisible} onDismiss={hideFoodDialog}>
-          <Dialog.Title>Besin Ekle</Dialog.Title>
-          <Dialog.Content>
-            {selectedFood ? (
-              <>
-                <View style={styles.selectedFoodContainer}>
-                  <Title>{selectedFood.name}</Title>
-                  <Button onPress={() => setSelectedFood(null)}>Değiştir</Button>
-                </View>
-                
-                <View style={styles.inputRow}>
-                  <TextInput
-                    label="Miktar"
-                    value={quantity}
-                    onChangeText={setQuantity}
-                    keyboardType="numeric"
-                    style={[styles.input, { flex: 2, marginRight: 8 }]}
-                  />
-                  
-                  <TextInput
-                    label="Birim"
-                    value={unit}
-                    onChangeText={setUnit}
-                    style={[styles.input, { flex: 1 }]}
-                  />
-                </View>
-                
-                {quantity && parseFloat(quantity) > 0 && selectedFood && (
-                  <View style={styles.nutritionPreview}>
-                    <Text style={styles.nutritionPreviewTitle}>Besin Değerleri:</Text>
-                    <View style={styles.nutritionPreviewItems}>
-                      <Text>Kalori: {Math.round(selectedFood.calories * parseFloat(quantity) / 100)} kcal</Text>
-                      <Text>Protein: {(selectedFood.protein * parseFloat(quantity) / 100).toFixed(1)}g</Text>
-                      <Text>Karb: {(selectedFood.carbs * parseFloat(quantity) / 100).toFixed(1)}g</Text>
-                      <Text>Yağ: {(selectedFood.fat * parseFloat(quantity) / 100).toFixed(1)}g</Text>
-                    </View>
-                  </View>
-                )}
-              </>
-            ) : (
-              <>
+      <Dialog visible={foodDialogVisible} onDismiss={hideFoodDialog}>
+        <Dialog.Title>Besin Ekle</Dialog.Title>
+        <Dialog.Content>
+          {selectedFood ? (
+            <>
+              <View style={styles.selectedFoodContainer}>
+                <Title>{selectedFood.name}</Title>
+                <Button onPress={() => setSelectedFood(null)}>Değiştir</Button>
+              </View>
+              
+              <View style={styles.inputRow}>
                 <TextInput
-                  label="Besin Ara"
-                  value={foodSearchQuery}
-                  onChangeText={setFoodSearchQuery}
-                  style={styles.input}
+                  label="Miktar"
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="numeric"
+                  style={[styles.input, { flex: 2, marginRight: 8 }]}
                 />
                 
-                <ScrollView style={styles.foodList}>
-                  {filteredFoods.map((food) => (
-                    <TouchableOpacity
-                      key={food._id}
-                      style={styles.foodSearchItem}
-                      onPress={() => handleSelectFood(food)}
-                    >
-                      <Text style={styles.foodSearchName}>{food.name}</Text>
-                      <Text style={styles.foodSearchCalories}>{food.calories} kcal/100g</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={hideFoodDialog}>İptal</Button>
-            <Button 
-              onPress={handleAddFood} 
-              disabled={!selectedFood || !quantity || parseFloat(quantity) <= 0}
-            >
-              Ekle
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+                <TextInput
+                  label="Birim"
+                  value={unit}
+                  onChangeText={setUnit}
+                  style={[styles.input, { flex: 1 }]}
+                />
+              </View>
+              
+              {quantity && parseFloat(quantity) > 0 && selectedFood && (
+                <View style={styles.nutritionPreview}>
+                  <Text style={styles.nutritionPreviewTitle}>Besin Değerleri:</Text>
+                  <View style={styles.nutritionPreviewItems}>
+                    <Text>Kalori: {Math.round(selectedFood.calories * parseFloat(quantity) / 100)} kcal</Text>
+                    <Text>Protein: {(selectedFood.protein * parseFloat(quantity) / 100).toFixed(1)}g</Text>
+                    <Text>Karb: {(selectedFood.carbs * parseFloat(quantity) / 100).toFixed(1)}g</Text>
+                    <Text>Yağ: {(selectedFood.fat * parseFloat(quantity) / 100).toFixed(1)}g</Text>
+                  </View>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              <TextInput
+                label="Besin Ara"
+                value={foodSearchQuery}
+                onChangeText={setFoodSearchQuery}
+                style={styles.input}
+              />
+              
+              <ScrollView style={styles.foodList}>
+                {filteredFoods.map((food) => (
+                  <TouchableOpacity
+                    key={food._id}
+                    style={styles.foodSearchItem}
+                    onPress={() => handleSelectFood(food)}
+                  >
+                    <Text style={styles.foodSearchName}>{food.name}</Text>
+                    <Text style={styles.foodSearchCalories}>{food.calories} kcal/100g</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          )}
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={hideFoodDialog}>İptal</Button>
+          <Button 
+            onPress={handleAddFood} 
+            disabled={!selectedFood || !quantity || parseFloat(quantity) <= 0}
+          >
+            Ekle
+          </Button>
+        </Dialog.Actions>
+      </Dialog>
     </View>
   );
 };

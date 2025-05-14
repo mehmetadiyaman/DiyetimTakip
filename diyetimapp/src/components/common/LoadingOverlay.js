@@ -7,7 +7,7 @@ import {
   Animated, 
   Easing 
 } from 'react-native';
-import { Portal } from 'react-native-paper';
+// import { Portal } from 'react-native-paper';
 import theme from '../../themes/theme';
 
 const LoadingOverlay = ({ 
@@ -60,25 +60,23 @@ const LoadingOverlay = ({
   }
 
   return (
-    <Portal>
+    <Animated.View
+      style={[
+        styles.container,
+        { backgroundColor: `rgba(0, 0, 0, ${backdropOpacity})` },
+        { opacity }
+      ]}
+    >
       <Animated.View
         style={[
-          styles.container,
-          { backgroundColor: `rgba(0, 0, 0, ${backdropOpacity})` },
-          { opacity }
+          styles.loaderContainer,
+          { transform: [{ scale }] }
         ]}
       >
-        <Animated.View
-          style={[
-            styles.loaderContainer,
-            { transform: [{ scale }] }
-          ]}
-        >
-          <ActivityIndicator size={spinnerSize} color={indicatorColor} />
-          {message && <Text style={[styles.message, { color: textColor }]}>{message}</Text>}
-        </Animated.View>
+        <ActivityIndicator size={spinnerSize} color={indicatorColor} />
+        {message && <Text style={[styles.message, { color: textColor }]}>{message}</Text>}
       </Animated.View>
-    </Portal>
+    </Animated.View>
   );
 };
 

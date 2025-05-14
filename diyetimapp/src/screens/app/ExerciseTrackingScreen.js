@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text, ActivityIndicator, ScrollView } from 'react-native';
-import { Card, Title, Paragraph, Button, Dialog, Portal, TextInput, Divider, FAB, List, IconButton, SegmentedButtons, Chip } from 'react-native-paper';
+import { Card, Title, Paragraph, Button, Dialog, TextInput, Divider, FAB, List, IconButton, SegmentedButtons, Chip } from 'react-native-paper';
 import { Calendar } from 'react-native-calendars';
 import { useAuth } from '../../hooks/useAuth';
 import { post, get, put, del } from '../../api/config';
 import { useFeedback } from '../../contexts/FeedbackContext';
 import theme from '../../themes/theme';
+import { LineChart } from 'react-native-chart-kit';
+import { Dimensions } from 'react-native';
+
+const windowWidth = Dimensions.get('window').width;
 
 const ExerciseTrackingScreen = ({ navigation, route }) => {
   const { token, user } = useAuth();
@@ -19,6 +23,18 @@ const ExerciseTrackingScreen = ({ navigation, route }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [markedDates, setMarkedDates] = useState({});
   const [exercises, setExercises] = useState([]);
+  const [weeklyData, setWeeklyData] = useState({
+    labels: [],
+    duration: [],
+    calories: []
+  });
+  const [weeklyProgress, setWeeklyProgress] = useState({
+    totalDuration: 0,
+    totalCalories: 0,
+    exerciseCount: 0,
+    consistency: 0,
+    improvement: 0
+  });
   const [exerciseTypes, setExerciseTypes] = useState([
     { id: 'cardio', name: 'Kardiyo', icon: 'run' },
     { id: 'strength', name: 'Kuvvet', icon: 'weight-lifter' },
@@ -40,6 +56,7 @@ const ExerciseTrackingScreen = ({ navigation, route }) => {
   
   useEffect(() => {
     fetchExerciseData();
+    fetchWeeklyData();
   }, [selectedDate]);
   
   const fetchExerciseData = async () => {
@@ -76,6 +93,91 @@ const ExerciseTrackingScreen = ({ navigation, route }) => {
       console.error('Exercise data fetch error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWeeklyData = async () => {
+    try {
+      // Son 7 günün tarihlerini oluştur
+      const today = new Date();
+      const dates = [];
+      const labels = [];
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        dates.push(dateStr);
+        
+        // Kısa gün adını al (Pzt, Sal, vb.)
+        const shortDay = new Intl.DateTimeFormat('tr-TR', { weekday: 'short' }).format(date);
+        labels.push(shortDay);
+      }
+
+      // Her tarih için egzersiz verilerini al
+      const endpoint = clientId 
+        ? `/exercises/client/${clientId}/range/${dates[0]}/${dates[6]}`
+        : `/exercises/user/range/${dates[0]}/${dates[6]}`;
+        
+      const weeklyExercises = await get(endpoint, token);
+      
+      // Verileri günlere göre grupla
+      const durationsMap = {};
+      const caloriesMap = {};
+      const exerciseCountMap = {};
+      
+      dates.forEach(date => {
+        durationsMap[date] = 0;
+        caloriesMap[date] = 0;
+        exerciseCountMap[date] = 0;
+      });
+      
+      weeklyExercises.forEach(exercise => {
+        if (durationsMap[exercise.date] !== undefined) {
+          durationsMap[exercise.date] += exercise.duration || 0;
+          caloriesMap[exercise.date] += exercise.calories || 0;
+          exerciseCountMap[exercise.date]++;
+        }
+      });
+      
+      // Chart verilerini hazırla
+      const durations = dates.map(date => durationsMap[date]);
+      const calories = dates.map(date => caloriesMap[date]);
+      
+      setWeeklyData({
+        labels,
+        duration: durations,
+        calories: calories
+      });
+      
+      // Haftalık özet istatistiklerini hesapla
+      const totalDuration = durations.reduce((sum, val) => sum + val, 0);
+      const totalCalories = calories.reduce((sum, val) => sum + val, 0);
+      const exerciseCount = Object.values(exerciseCountMap).reduce((sum, val) => sum + val, 0);
+      
+      // Tutarlılık: kaç gün egzersiz yapıldı
+      const daysWithExercise = dates.filter(date => durationsMap[date] > 0).length;
+      const consistency = (daysWithExercise / 7) * 100;
+      
+      // İlerleme: ilk 3 gün vs son 3 gün karşılaştırması
+      const firstHalfDuration = durations.slice(0, 3).reduce((sum, val) => sum + val, 0);
+      const secondHalfDuration = durations.slice(4, 7).reduce((sum, val) => sum + val, 0);
+      let improvement = 0;
+      
+      if (firstHalfDuration > 0) {
+        improvement = ((secondHalfDuration - firstHalfDuration) / firstHalfDuration) * 100;
+      }
+      
+      setWeeklyProgress({
+        totalDuration,
+        totalCalories,
+        exerciseCount,
+        consistency,
+        improvement
+      });
+      
+    } catch (error) {
+      console.error('Weekly exercise data fetch error:', error);
     }
   };
   
@@ -132,6 +234,7 @@ const ExerciseTrackingScreen = ({ navigation, route }) => {
       
       hideExerciseDialog();
       fetchExerciseData();
+      fetchWeeklyData();
     } catch (error) {
       showError('İşlem sırasında bir hata oluştu');
       console.error('Exercise save error:', error);
@@ -143,6 +246,7 @@ const ExerciseTrackingScreen = ({ navigation, route }) => {
       await del(`/exercises/${exerciseId}`, null, token);
       showSuccess('Egzersiz başarıyla silindi');
       fetchExerciseData();
+      fetchWeeklyData();
     } catch (error) {
       showError('Silme işlemi sırasında bir hata oluştu');
       console.error('Exercise delete error:', error);
@@ -158,6 +262,29 @@ const ExerciseTrackingScreen = ({ navigation, route }) => {
     result[type.id] = exercises.filter(exercise => exercise.type === type.id);
     return result;
   }, {});
+
+  // Determine performance evaluation
+  const getPerformanceColor = (value) => {
+    if (value >= 80) return '#4CAF50'; // Yeşil
+    if (value >= 60) return '#8BC34A'; // Açık yeşil
+    if (value >= 40) return '#FFEB3B'; // Sarı
+    if (value >= 20) return '#FF9800'; // Turuncu
+    return '#F44336'; // Kırmızı
+  };
+
+  const getPerformanceText = (value) => {
+    if (value >= 80) return 'Mükemmel';
+    if (value >= 60) return 'İyi';
+    if (value >= 40) return 'Orta';
+    if (value >= 20) return 'Geliştirilebilir';
+    return 'Yetersiz';
+  };
+
+  const consistencyColor = getPerformanceColor(weeklyProgress.consistency);
+  const consistencyText = getPerformanceText(weeklyProgress.consistency);
+
+  const improvementColor = weeklyProgress.improvement >= 0 ? '#4CAF50' : '#F44336';
+  const improvementText = weeklyProgress.improvement >= 0 ? 'İyileşme' : 'Düşüş';
   
   return (
     <View style={styles.container}>
@@ -203,6 +330,79 @@ const ExerciseTrackingScreen = ({ navigation, route }) => {
                   <Text style={styles.summaryLabel}>Kalori</Text>
                 </View>
               </View>
+            </Card.Content>
+          </Card>
+
+          {/* Weekly Progress */}
+          <Card style={styles.card}>
+            <Card.Content>
+              <Title>Haftalık İlerleme</Title>
+              <Divider style={styles.divider} />
+              
+              {weeklyData.labels.length > 0 && (
+                <>
+                  <Text style={styles.chartTitle}>Günlük Egzersiz Süresi (dakika)</Text>
+                  <LineChart
+                    data={{
+                      labels: weeklyData.labels,
+                      datasets: [
+                        {
+                          data: weeklyData.duration
+                        }
+                      ]
+                    }}
+                    width={windowWidth - 64}
+                    height={180}
+                    chartConfig={{
+                      backgroundColor: '#ffffff',
+                      backgroundGradientFrom: '#ffffff',
+                      backgroundGradientTo: '#ffffff',
+                      decimalPlaces: 0,
+                      color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
+                      labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                      style: {
+                        borderRadius: 16
+                      }
+                    }}
+                    style={styles.chart}
+                    bezier
+                  />
+
+                  <View style={styles.weeklyStats}>
+                    <View style={styles.statRow}>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statLabel}>Toplam Süre</Text>
+                        <Text style={styles.statValue}>{weeklyProgress.totalDuration} dk</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statLabel}>Toplam Kalori</Text>
+                        <Text style={styles.statValue}>{weeklyProgress.totalCalories} kcal</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.statRow}>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statLabel}>Tutarlılık</Text>
+                        <View style={styles.statValueRow}>
+                          <Text style={styles.statValue}>{Math.round(weeklyProgress.consistency)}%</Text>
+                          <Chip style={[styles.statChip, { backgroundColor: consistencyColor }]} textStyle={{ color: 'white' }}>
+                            {consistencyText}
+                          </Chip>
+                        </View>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statLabel}>Haftalık Değişim</Text>
+                        <View style={styles.statValueRow}>
+                          <Text style={styles.statValue}>{Math.round(weeklyProgress.improvement)}%</Text>
+                          <Chip style={[styles.statChip, { backgroundColor: improvementColor }]} textStyle={{ color: 'white' }}>
+                            {improvementText}
+                          </Chip>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                </>
+              )}
             </Card.Content>
           </Card>
           
@@ -275,64 +475,62 @@ const ExerciseTrackingScreen = ({ navigation, route }) => {
       )}
       
       {/* Exercise Dialog */}
-      <Portal>
-        <Dialog visible={exerciseDialogVisible} onDismiss={hideExerciseDialog}>
-          <Dialog.Title>{editingExercise ? 'Egzersiz Düzenle' : 'Egzersiz Ekle'}</Dialog.Title>
-          <Dialog.Content>
+      <Dialog visible={exerciseDialogVisible} onDismiss={hideExerciseDialog}>
+        <Dialog.Title>{editingExercise ? 'Egzersiz Düzenle' : 'Egzersiz Ekle'}</Dialog.Title>
+        <Dialog.Content>
+          <TextInput
+            label="Egzersiz Adı"
+            value={name}
+            onChangeText={setName}
+            style={styles.input}
+          />
+          
+          <Title style={styles.formLabel}>Egzersiz Türü</Title>
+          <SegmentedButtons
+            value={exerciseType}
+            onValueChange={setExerciseType}
+            buttons={exerciseTypes.map(type => ({
+              value: type.id,
+              label: type.name,
+              icon: type.icon
+            }))}
+            style={styles.segmentedButtons}
+          />
+          
+          <View style={styles.formRow}>
             <TextInput
-              label="Egzersiz Adı"
-              value={name}
-              onChangeText={setName}
-              style={styles.input}
+              label="Süre (dk)"
+              value={duration}
+              onChangeText={setDuration}
+              keyboardType="numeric"
+              style={[styles.input, { flex: 1, marginRight: 8 }]}
             />
-            
-            <Title style={styles.formLabel}>Egzersiz Türü</Title>
-            <SegmentedButtons
-              value={exerciseType}
-              onValueChange={setExerciseType}
-              buttons={exerciseTypes.map(type => ({
-                value: type.id,
-                label: type.name,
-                icon: type.icon
-              }))}
-              style={styles.segmentedButtons}
-            />
-            
-            <View style={styles.formRow}>
-              <TextInput
-                label="Süre (dk)"
-                value={duration}
-                onChangeText={setDuration}
-                keyboardType="numeric"
-                style={[styles.input, { flex: 1, marginRight: 8 }]}
-              />
-              
-              <TextInput
-                label="Yakılan Kalori"
-                value={calories}
-                onChangeText={setCalories}
-                keyboardType="numeric"
-                style={[styles.input, { flex: 1 }]}
-              />
-            </View>
             
             <TextInput
-              label="Notlar"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-              style={styles.input}
+              label="Yakılan Kalori"
+              value={calories}
+              onChangeText={setCalories}
+              keyboardType="numeric"
+              style={[styles.input, { flex: 1 }]}
             />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={hideExerciseDialog}>İptal</Button>
-            <Button onPress={handleSaveExercise} disabled={!name || !duration}>
-              Kaydet
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+          </View>
+          
+          <TextInput
+            label="Notlar"
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            numberOfLines={3}
+            style={styles.input}
+          />
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={hideExerciseDialog}>İptal</Button>
+          <Button onPress={handleSaveExercise} disabled={!name || !duration}>
+            Kaydet
+          </Button>
+        </Dialog.Actions>
+      </Dialog>
       
       <FAB
         style={styles.fab}
@@ -387,6 +585,45 @@ const styles = StyleSheet.create({
   summaryLabel: {
     color: theme.palette.text.secondary,
     fontSize: 14,
+  },
+  chartTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: theme.palette.text.secondary,
+    textAlign: 'center',
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16,
+  },
+  weeklyStats: {
+    marginTop: 16,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  statItem: {
+    width: '48%',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: theme.palette.text.secondary,
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  statValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statChip: {
+    height: 24,
   },
   sectionHeader: {
     flexDirection: 'row',

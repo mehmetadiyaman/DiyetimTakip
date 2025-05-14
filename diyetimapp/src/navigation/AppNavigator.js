@@ -3,8 +3,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../hooks/useAuth';
-import { ActivityIndicator, View, Platform } from 'react-native';
+import { ActivityIndicator, View, Platform, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import theme from '../themes/theme';
 
 // Auth Screens
@@ -31,15 +32,98 @@ import NotificationSettingsScreen from '../screens/app/NotificationSettingsScree
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Ortak stack navigator ayarları
+// Modern header background with subtle gradient
+const HeaderBackground = () => {
+  return (
+    <LinearGradient
+      colors={['#4caf50', '#66bb6a', '#81c784']}
+      style={{ flex: 1 }}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+    />
+  );
+};
+
+// Refined stack navigator options
 const stackScreenOptions = {
-  headerStyle: { backgroundColor: theme.palette.primary.main },
-  headerTintColor: theme.palette.primary.contrastText,
-  headerTitleStyle: { 
-    fontWeight: theme.typography.fontWeight.bold,
-    fontSize: theme.typography.fontSize.lg
+  headerStyle: { 
+    height: Platform.OS === 'ios' ? 88 : 70, // Reduced height
+    elevation: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
   },
-  cardStyle: { backgroundColor: theme.palette.background.default }
+  headerBackground: HeaderBackground,
+  headerTintColor: '#ffffff',
+  headerTitleStyle: { 
+    fontWeight: '700',
+    fontSize: 24,
+    letterSpacing: 0.5,
+    color: '#ffffff',
+    ...Platform.select({
+      ios: {
+        fontFamily: 'Noteworthy-Light',
+        shadowColor: 'rgba(0,0,0,0.3)',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.3,
+        shadowRadius: 1,
+      },
+      android: {
+        fontFamily: 'cursive',
+      }
+    })
+  },
+  headerTitleAlign: 'center',
+  headerLeftContainerStyle: {
+    paddingLeft: 16,
+  },
+  headerRightContainerStyle: {
+    paddingRight: 16,
+  },
+  cardStyle: { backgroundColor: theme.palette.background.default },
+  // Add smooth transitions between screens
+  transitionSpec: {
+    open: {
+      animation: 'timing',
+      config: {
+        duration: 300,
+      },
+    },
+    close: {
+      animation: 'timing',
+      config: {
+        duration: 250,
+      },
+    },
+  },
+  cardStyleInterpolator: ({ current, layouts }) => {
+    return {
+      cardStyle: {
+        transform: [
+          {
+            translateX: current.progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [layouts.screen.width, 0],
+            }),
+          },
+        ],
+        opacity: current.progress.interpolate({
+          inputRange: [0, 0.5, 1],
+          outputRange: [0, 0.8, 1],
+        }),
+      },
+      overlayStyle: {
+        opacity: current.progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 0.5],
+        }),
+      },
+    };
+  },
 };
 
 // Auth Stack Navigator
@@ -77,57 +161,109 @@ const AppTabs = () => (
           iconName = focused ? 'person' : 'person-outline';
         }
 
-        return <Ionicons name={iconName} size={24} color={color} />;
+        return <Ionicons name={iconName} size={22} color={color} />;
       },
       tabBarActiveTintColor: theme.palette.primary.main,
-      tabBarInactiveTintColor: theme.palette.grey[600],
+      tabBarInactiveTintColor: theme.palette.grey[500],
       tabBarIconStyle: {
         marginTop: 2
       },
       tabBarStyle: {
-        backgroundColor: theme.palette.background.paper,
-        borderTopColor: theme.palette.grey[300],
-        height: 80,
+        backgroundColor: '#ffffff',
+        borderTopColor: 'rgba(0,0,0,0.05)',
+        height: 76,
         paddingTop: 5,
-        paddingBottom: 7
+        paddingBottom: 7,
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
       },
       tabBarLabelStyle: {
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: '500',
         marginBottom: 3
       },
-      headerStyle: { backgroundColor: theme.palette.primary.main },
-      headerTintColor: theme.palette.primary.contrastText,
+      headerStyle: { 
+        height: Platform.OS === 'ios' ? 88 : 70, // Reduced height
+        elevation: 0,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 2,
+        borderBottomWidth: 0,
+        borderBottomLeftRadius: 14,
+        borderBottomRightRadius: 14,
+      },
+      headerBackground: HeaderBackground,
+      headerTintColor: '#ffffff',
       headerTitleStyle: { 
-        fontWeight: theme.typography.fontWeight.bold,
-        fontSize: theme.typography.fontSize.lg
+        fontWeight: '700',
+        fontSize: 24,
+        letterSpacing: 0.5,
+        color: '#ffffff',
+        ...Platform.select({
+          ios: {
+            fontFamily: 'Noteworthy-Light',
+            shadowColor: 'rgba(0,0,0,0.3)',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.3,
+            shadowRadius: 1,
+          },
+          android: {
+            fontFamily: 'cursive',
+          }
+        })
+      },
+      headerTitleAlign: 'center',
+      headerLeftContainerStyle: {
+        paddingLeft: 16,
+      },
+      headerRightContainerStyle: {
+        paddingRight: 16,
       }
     })}
   >
     <Tab.Screen 
       name="Dashboard" 
       component={DashboardStack} 
-      options={{ title: 'Ana Sayfa', headerShown: false }} 
+      options={{ 
+        title: 'Ana Sayfa', 
+        headerShown: false,
+      }} 
     />
     <Tab.Screen 
       name="Clients" 
       component={ClientsStack} 
-      options={{ title: 'Danışanlar', headerShown: false }} 
+      options={{ 
+        title: 'Danışanlar', 
+        headerShown: false,
+      }} 
     />
     <Tab.Screen 
       name="MealPlanner" 
       component={MealPlannerStack} 
-      options={{ title: 'Beslenme', headerShown: false }} 
+      options={{ 
+        title: 'Beslenme', 
+        headerShown: false,
+      }} 
     />
     <Tab.Screen 
       name="Appointments" 
       component={AppointmentsStack} 
-      options={{ title: 'Randevular', headerShown: false }} 
+      options={{ 
+        title: 'Randevular', 
+        headerShown: false,
+      }} 
     />
     <Tab.Screen 
       name="Profile" 
       component={ProfileStack} 
-      options={{ title: 'Profil', headerShown: false }} 
+      options={{ 
+        title: 'Profil', 
+        headerShown: false,
+      }} 
     />
   </Tab.Navigator>
 );
@@ -139,7 +275,10 @@ const DashboardStack = () => (
     <DashboardStackNav.Screen 
       name="DashboardMain" 
       component={DashboardScreen} 
-      options={{ title: 'Ana Sayfa' }} 
+      options={{ 
+        title: 'Ana Sayfa',
+        headerLeft: () => null,
+      }} 
     />
     <DashboardStackNav.Screen 
       name="DietPlanDetails" 
@@ -156,7 +295,10 @@ const ClientsStack = () => (
     <ClientsStackNav.Screen 
       name="ClientsList" 
       component={ClientsScreen} 
-      options={{ title: 'Danışanlar' }} 
+      options={{ 
+        title: 'Danışanlar',
+        headerLeft: () => null,
+      }} 
     />
     <ClientsStackNav.Screen 
       name="ClientDetails" 
@@ -193,7 +335,10 @@ const AppointmentsStack = () => (
     <AppointmentsStackNav.Screen 
       name="AppointmentsMain" 
       component={AppointmentsScreen} 
-      options={{ title: 'Randevular' }} 
+      options={{ 
+        title: 'Randevular',
+        headerLeft: () => null,
+      }} 
     />
   </AppointmentsStackNav.Navigator>
 );
@@ -205,7 +350,10 @@ const MealPlannerStack = () => (
     <MealPlannerStackNav.Screen 
       name="MealPlannerMain" 
       component={MealPlannerScreen} 
-      options={{ title: 'Beslenme Takibi' }} 
+      options={{ 
+        title: 'Beslenme Takibi',
+        headerLeft: () => null,
+      }} 
     />
     <MealPlannerStackNav.Screen 
       name="FoodItems" 
@@ -232,7 +380,10 @@ const ProfileStack = () => (
     <ProfileStackNav.Screen 
       name="ProfileMain" 
       component={ProfileScreen} 
-      options={{ title: 'Profil' }} 
+      options={{ 
+        title: 'Profil',
+        headerLeft: () => null,
+      }} 
     />
     <ProfileStackNav.Screen 
       name="NotificationSettings" 

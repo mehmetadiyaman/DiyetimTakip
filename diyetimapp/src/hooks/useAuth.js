@@ -127,6 +127,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Hata temizleme fonksiyonu
+  const clearErrors = () => {
+    setError(null);
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -136,7 +141,8 @@ export const AuthProvider = ({ children }) => {
       login, 
       register, 
       logout, 
-      updateProfile 
+      updateProfile,
+      clearErrors
     }}>
       {children}
     </AuthContext.Provider>

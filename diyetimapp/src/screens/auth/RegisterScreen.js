@@ -52,10 +52,15 @@ const RegisterScreen = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.container}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Dietçim'e Kaydolun</Text>
           <Text style={styles.subtitle}>Diyetisyenlik uygulamanızı mobil erişimle güçlendirin</Text>
@@ -153,12 +158,14 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 60,
   },
   headerContainer: {
     alignItems: 'center',
     marginBottom: 30,
+    marginTop: 20,
   },
   title: {
     fontSize: 24,
@@ -181,10 +188,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    width: '100%',
+    alignSelf: 'center',
   },
   input: {
     marginBottom: 15,
     backgroundColor: 'white',
+    width: '100%',
+    alignSelf: 'center',
   },
   button: {
     marginTop: 10,

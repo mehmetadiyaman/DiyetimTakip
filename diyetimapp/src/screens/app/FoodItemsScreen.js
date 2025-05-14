@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Text } from 'react-native';
-import { Searchbar, FAB, Card, Title, Paragraph, Button, Dialog, Portal, TextInput, Chip, Divider } from 'react-native-paper';
+import { Searchbar, FAB, Card, Title, Paragraph, Button, Dialog, TextInput, Chip, Divider } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { post, get, put, del } from '../../api/config';
@@ -217,57 +217,55 @@ const FoodItemsScreen = ({ navigation }) => {
         onPress={() => showDialog()}
       />
       
-      <Portal>
-        <Dialog visible={visible} onDismiss={hideDialog}>
-          <Dialog.Title>{editMode ? 'Besin Düzenle' : 'Yeni Besin Ekle'}</Dialog.Title>
-          <Dialog.Content>
-            <TextInput
-              label="Besin Adı"
-              value={name}
-              onChangeText={setName}
-              style={styles.input}
-            />
-            <TextInput
-              label="Kalori"
-              value={calories}
-              onChangeText={setCalories}
-              keyboardType="numeric"
-              style={styles.input}
-            />
-            <TextInput
-              label="Protein (g)"
-              value={protein}
-              onChangeText={setProtein}
-              keyboardType="numeric"
-              style={styles.input}
-            />
-            <TextInput
-              label="Karbonhidrat (g)"
-              value={carbs}
-              onChangeText={setCarbs}
-              keyboardType="numeric"
-              style={styles.input}
-            />
-            <TextInput
-              label="Yağ (g)"
-              value={fat}
-              onChangeText={setFat}
-              keyboardType="numeric"
-              style={styles.input}
-            />
-            <TextInput
-              label="Kategori"
-              value={category}
-              onChangeText={setCategory}
-              style={styles.input}
-            />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={hideDialog}>İptal</Button>
-            <Button onPress={handleSave}>Kaydet</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <Dialog visible={visible} onDismiss={hideDialog}>
+        <Dialog.Title>{editMode ? 'Besin Düzenle' : 'Yeni Besin Ekle'}</Dialog.Title>
+        <Dialog.Content>
+          <TextInput
+            label="Besin Adı"
+            value={name}
+            onChangeText={setName}
+            style={styles.input}
+          />
+          <TextInput
+            label="Kalori"
+            value={calories}
+            onChangeText={setCalories}
+            keyboardType="numeric"
+            style={styles.input}
+          />
+          <TextInput
+            label="Protein (g)"
+            value={protein}
+            onChangeText={setProtein}
+            keyboardType="numeric"
+            style={styles.input}
+          />
+          <TextInput
+            label="Karbonhidrat (g)"
+            value={carbs}
+            onChangeText={setCarbs}
+            keyboardType="numeric"
+            style={styles.input}
+          />
+          <TextInput
+            label="Yağ (g)"
+            value={fat}
+            onChangeText={setFat}
+            keyboardType="numeric"
+            style={styles.input}
+          />
+          <TextInput
+            label="Kategori"
+            value={category}
+            onChangeText={setCategory}
+            style={styles.input}
+          />
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={hideDialog}>İptal</Button>
+          <Button onPress={handleSave}>Kaydet</Button>
+        </Dialog.Actions>
+      </Dialog>
     </View>
   );
 };

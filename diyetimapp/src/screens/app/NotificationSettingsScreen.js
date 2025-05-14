@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Platform } from 'react-native';
-import { Card, Title, Paragraph, Switch, Divider, Button, Dialog, Portal, TextInput, List, IconButton } from 'react-native-paper';
+import { Card, Title, Paragraph, Switch, Divider, Button, Dialog, TextInput, List, IconButton } from 'react-native-paper';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeedback } from '../../contexts/FeedbackContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -329,60 +329,56 @@ const NotificationSettingsScreen = ({ navigation }) => {
       
       {/* Zaman Seçici Dialog */}
       {timePickerVisible && (
-        <Portal>
-          <Dialog visible={timePickerVisible} onDismiss={hideTimePicker}>
-            <Dialog.Title>{getMealTypeName(selectedMealType)} Hatırlatıcı Zamanı</Dialog.Title>
-            <Dialog.Content>
-              <DateTimePicker
-                value={selectedTime}
-                mode="time"
-                is24Hour={true}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleTimeChange}
-              />
-            </Dialog.Content>
-            {Platform.OS === 'ios' && (
-              <Dialog.Actions>
-                <Button onPress={hideTimePicker}>Tamam</Button>
-              </Dialog.Actions>
-            )}
-          </Dialog>
-        </Portal>
+        <Dialog visible={timePickerVisible} onDismiss={hideTimePicker}>
+          <Dialog.Title>{getMealTypeName(selectedMealType)} Hatırlatıcı Zamanı</Dialog.Title>
+          <Dialog.Content>
+            <DateTimePicker
+              value={selectedTime}
+              mode="time"
+              is24Hour={true}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleTimeChange}
+            />
+          </Dialog.Content>
+          {Platform.OS === 'ios' && (
+            <Dialog.Actions>
+              <Button onPress={hideTimePicker}>Tamam</Button>
+            </Dialog.Actions>
+          )}
+        </Dialog>
       )}
       
       {/* Su Hatırlatıcı Aralığı Dialog */}
-      <Portal>
-        <Dialog 
-          visible={waterIntervalDialogVisible} 
-          onDismiss={() => setWaterIntervalDialogVisible(false)}
-        >
-          <Dialog.Title>Su Hatırlatma Sıklığı</Dialog.Title>
-          <Dialog.Content>
-            <Text style={styles.dialogText}>Hatırlatma aralığını seçin (dakika)</Text>
-            <View style={styles.intervalOptions}>
-              {[30, 60, 90, 120, 180, 240].map(interval => (
-                <TouchableOpacity
-                  key={interval}
-                  style={[
-                    styles.intervalOption,
-                    waterInterval === interval && styles.selectedIntervalOption
-                  ]}
-                  onPress={() => setWaterInterval(interval)}
-                >
-                  <Text style={waterInterval === interval ? styles.selectedIntervalText : {}}>
-                    {interval >= 60 
-                      ? `${Math.floor(interval / 60)} saat ${interval % 60 > 0 ? `${interval % 60} dk` : ''}`
-                      : `${interval} dk`}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setWaterIntervalDialogVisible(false)}>Tamam</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <Dialog 
+        visible={waterIntervalDialogVisible} 
+        onDismiss={() => setWaterIntervalDialogVisible(false)}
+      >
+        <Dialog.Title>Su Hatırlatma Sıklığı</Dialog.Title>
+        <Dialog.Content>
+          <Text style={styles.dialogText}>Hatırlatma aralığını seçin (dakika)</Text>
+          <View style={styles.intervalOptions}>
+            {[30, 60, 90, 120, 180, 240].map(interval => (
+              <TouchableOpacity
+                key={interval}
+                style={[
+                  styles.intervalOption,
+                  waterInterval === interval && styles.selectedIntervalOption
+                ]}
+                onPress={() => setWaterInterval(interval)}
+              >
+                <Text style={waterInterval === interval ? styles.selectedIntervalText : {}}>
+                  {interval >= 60 
+                    ? `${Math.floor(interval / 60)} saat ${interval % 60 > 0 ? `${interval % 60} dk` : ''}`
+                    : `${interval} dk`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={() => setWaterIntervalDialogVisible(false)}>Tamam</Button>
+        </Dialog.Actions>
+      </Dialog>
     </ScrollView>
   );
 };

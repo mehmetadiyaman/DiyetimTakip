@@ -7,22 +7,18 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   Alert,
-  Image,
   RefreshControl
 } from 'react-native';
 import { 
   Searchbar, 
   FAB,
-
   Avatar,
   Card,
   IconButton,
   Menu,
   Divider,
   Dialog,
-  Portal,
-  Button,
-  TextInput
+  Button
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
@@ -66,16 +62,15 @@ const ClientsScreen = ({ navigation }) => {
 
   const filterClients = (query) => {
     setSearchQuery(query);
-    if (!query.trim()) {
+    if (query.trim()) {
+      const filtered = clients.filter(client => 
+        client.name.toLowerCase().includes(query.toLowerCase()) ||
+        (client.email && client.email.toLowerCase().includes(query.toLowerCase()))
+      );
+      setFilteredClients(filtered);
+    } else {
       setFilteredClients(clients);
-      return;
     }
-    
-    const filtered = clients.filter(client => 
-      client.name.toLowerCase().includes(query.toLowerCase()) ||
-      (client.email && client.email.toLowerCase().includes(query.toLowerCase()))
-    );
-    setFilteredClients(filtered);
   };
 
   const handleClientPress = (client) => {
@@ -160,7 +155,7 @@ const ClientsScreen = ({ navigation }) => {
                 </Text>
                 {item.startingWeight && (
                   <Text style={styles.clientStatText}>
-                    {item.startingWeight} kg → {item.targetWeight || '?'} kg
+                    {item.startingWeight} kg {item.targetWeight ? `(Hedef: ${item.targetWeight} kg)` : ''}
                   </Text>
                 )}
               </View>
@@ -187,13 +182,15 @@ const ClientsScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Searchbar
-        placeholder="Danışan Ara..."
-        onChangeText={filterClients}
-        value={searchQuery}
-        style={styles.searchBar}
-        iconColor="#4caf50"
-      />
+      <View style={styles.searchContainer}>
+        <Searchbar
+          placeholder="Danışan Ara..."
+          onChangeText={filterClients}
+          value={searchQuery}
+          style={styles.searchBar}
+          iconColor="#4caf50"
+        />
+      </View>
 
       {error ? (
         <Text style={styles.errorText}>{error}</Text>
@@ -215,6 +212,7 @@ const ClientsScreen = ({ navigation }) => {
               refreshing={refreshing} 
               onRefresh={onRefresh} 
               colors={['#4caf50']} 
+              tintColor="#4caf50"
             />
           }
         />
@@ -227,50 +225,48 @@ const ClientsScreen = ({ navigation }) => {
         onPress={() => navigation.navigate('ClientDetails', { isCreating: true })}
       />
 
-      <Portal>
-        <Menu
-          visible={menuVisible}
-          onDismiss={hideMenu}
-          anchor={{ x: 0, y: 0 }}
-          style={styles.menu}
-        >
-          <Menu.Item 
-            onPress={handleEditClient} 
-            title="Düzenle" 
-            leadingIcon="pencil" 
-          />
-          <Menu.Item 
-            onPress={handleViewMeasurements} 
-            title="Ölçümleri Görüntüle" 
-            leadingIcon="ruler" 
-          />
-          <Menu.Item 
-            onPress={handleViewDietPlans} 
-            title="Diyet Planları" 
-            leadingIcon="food-apple" 
-          />
-          <Divider />
-          <Menu.Item 
-            onPress={confirmDelete} 
-            title="Sil" 
-            leadingIcon="delete" 
-            titleStyle={{ color: '#f44336' }}
-          />
-        </Menu>
+      <Menu
+        visible={menuVisible}
+        onDismiss={hideMenu}
+        anchor={{ x: 0, y: 0 }}
+        style={styles.menu}
+      >
+        <Menu.Item 
+          onPress={handleEditClient} 
+          title="Düzenle" 
+          leadingIcon="pencil" 
+        />
+        <Menu.Item 
+          onPress={handleViewMeasurements} 
+          title="Ölçümleri Görüntüle" 
+          leadingIcon="ruler" 
+        />
+        <Menu.Item 
+          onPress={handleViewDietPlans} 
+          title="Diyet Planları" 
+          leadingIcon="food-apple" 
+        />
+        <Divider />
+        <Menu.Item 
+          onPress={confirmDelete} 
+          title="Sil" 
+          leadingIcon="delete" 
+          titleStyle={{ color: '#f44336' }}
+        />
+      </Menu>
 
-        <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>
-          <Dialog.Title>Danışanı Sil</Dialog.Title>
-          <Dialog.Content>
-            <Text>
-              {selectedClient?.name} adlı danışanı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setDeleteDialogVisible(false)}>İptal</Button>
-            <Button onPress={handleDeleteClient} textColor="#f44336">Sil</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>
+        <Dialog.Title>Danışanı Sil</Dialog.Title>
+        <Dialog.Content>
+          <Text>
+            {selectedClient?.name} adlı danışanı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+          </Text>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={() => setDeleteDialogVisible(false)}>İptal</Button>
+          <Button onPress={handleDeleteClient} textColor="#f44336">Sil</Button>
+        </Dialog.Actions>
+      </Dialog>
     </View>
   );
 };
@@ -278,7 +274,7 @@ const ClientsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
   loadingContainer: {
     flex: 1,
@@ -294,15 +290,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     margin: 20,
   },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    backgroundColor: '#81c784',
+    paddingBottom: 20,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    marginBottom: -10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   searchBar: {
-    margin: 16,
-    elevation: 4,
-    borderRadius: 10,
+    elevation: 1,
+    borderRadius: 12,
     backgroundColor: 'white',
+    shadowColor: 'rgba(0,0,0,0.1)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
   },
   listContainer: {
     padding: 16,
-    paddingTop: 0,
+    paddingTop: 8,
   },
   emptyContainer: {
     flex: 1,
