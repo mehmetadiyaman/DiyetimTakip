@@ -22,13 +22,6 @@ import MeasurementsScreen from '../screens/app/MeasurementsScreen';
 import ProfileScreen from '../screens/app/ProfileScreen';
 import { commonStyles } from '../themes';
 
-// New Screens
-import FoodItemsScreen from '../screens/app/FoodItemsScreen';
-import RecipesScreen from '../screens/app/RecipesScreen';
-import MealPlannerScreen from '../screens/app/MealPlannerScreen';
-import ExerciseTrackingScreen from '../screens/app/ExerciseTrackingScreen';
-import NotificationSettingsScreen from '../screens/app/NotificationSettingsScreen';
-
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -155,8 +148,6 @@ const AppTabs = () => (
           iconName = focused ? 'people' : 'people-outline';
         } else if (route.name === 'Appointments') {
           iconName = focused ? 'calendar' : 'calendar-outline';
-        } else if (route.name === 'DietPlans') {
-          iconName = focused ? 'nutrition' : 'nutrition-outline';
         } else if (route.name === 'Profile') {
           iconName = focused ? 'person' : 'person-outline';
         }
@@ -242,14 +233,6 @@ const AppTabs = () => (
       }} 
     />
     <Tab.Screen 
-      name="DietPlans" 
-      component={DietPlansStack} 
-      options={{ 
-        title: 'Diyet Planları', 
-        headerShown: false,
-      }} 
-    />
-    <Tab.Screen 
       name="Appointments" 
       component={AppointmentsStack} 
       options={{ 
@@ -326,16 +309,6 @@ const ClientsStack = () => (
       component={DietPlansScreen} 
       options={({ route }) => ({ title: `${route.params?.clientName ? route.params.clientName + ' - ' : ''}Diyet Planları` })} 
     />
-    <ClientsStackNav.Screen 
-      name="ClientMealPlanner" 
-      component={MealPlannerScreen} 
-      options={({ route }) => ({ title: `${route.params?.clientName ? route.params.clientName + ' - ' : ''}Beslenme Takibi` })} 
-    />
-    <ClientsStackNav.Screen 
-      name="ExerciseTracking" 
-      component={ExerciseTrackingScreen} 
-      options={({ route }) => ({ title: `${route.params?.clientName ? route.params.clientName + ' - ' : ''}Egzersiz Takibi` })} 
-    />
   </ClientsStackNav.Navigator>
 );
 
@@ -354,36 +327,6 @@ const AppointmentsStack = () => (
   </AppointmentsStackNav.Navigator>
 );
 
-// Meal Planner Stack
-const MealPlannerStackNav = createStackNavigator();
-const MealPlannerStack = () => (
-  <MealPlannerStackNav.Navigator screenOptions={stackScreenOptions}>
-    <MealPlannerStackNav.Screen 
-      name="MealPlannerMain" 
-      component={MealPlannerScreen} 
-      options={{ 
-        title: 'Beslenme Takibi',
-        headerLeft: () => null,
-      }} 
-    />
-    <MealPlannerStackNav.Screen 
-      name="FoodItems" 
-      component={FoodItemsScreen} 
-      options={{ title: 'Besin Havuzu' }} 
-    />
-    <MealPlannerStackNav.Screen 
-      name="Recipes" 
-      component={RecipesScreen} 
-      options={{ title: 'Tarifler' }} 
-    />
-    <MealPlannerStackNav.Screen 
-      name="ExerciseTracking" 
-      component={ExerciseTrackingScreen} 
-      options={{ title: 'Egzersiz Takibi' }} 
-    />
-  </MealPlannerStackNav.Navigator>
-);
-
 // Diet Plans Stack
 const DietPlansStackNav = createStackNavigator();
 const DietPlansStack = () => (
@@ -395,21 +338,6 @@ const DietPlansStack = () => (
         title: 'Diyet Planları',
         headerLeft: () => null,
       }} 
-    />
-    <DietPlansStackNav.Screen 
-      name="FoodItems" 
-      component={FoodItemsScreen} 
-      options={{ title: 'Besin Havuzu' }} 
-    />
-    <DietPlansStackNav.Screen 
-      name="Recipes" 
-      component={RecipesScreen} 
-      options={{ title: 'Tarifler' }} 
-    />
-    <DietPlansStackNav.Screen 
-      name="MealPlanner" 
-      component={MealPlannerScreen} 
-      options={{ title: 'Beslenme Takibi' }} 
     />
   </DietPlansStackNav.Navigator>
 );
@@ -425,11 +353,6 @@ const ProfileStack = () => (
         title: 'Profil',
         headerLeft: () => null,
       }} 
-    />
-    <ProfileStackNav.Screen 
-      name="NotificationSettings" 
-      component={NotificationSettingsScreen} 
-      options={{ title: 'Bildirim Ayarları' }} 
     />
   </ProfileStackNav.Navigator>
 );

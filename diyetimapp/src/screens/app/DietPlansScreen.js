@@ -1,536 +1,559 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  TouchableOpacity
+  Alert,
+  Dimensions
 } from 'react-native';
-import { 
-  Card, 
-  Title, 
-  Paragraph, 
-  Button, 
-  Divider, 
+import {
+  Card,
+  Text,
   FAB,
+  Divider,
+  Button,
+  IconButton,
+  Menu,
   Dialog,
-  TextInput,
-  HelperText,
+  Portal,
+  Badge,
   Chip,
-  List,
-  IconButton
+  Avatar,
+  ProgressBar,
+  Snackbar,
+  Modal
 } from 'react-native-paper';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
-import { useToast } from '../../hooks/useToast';
-import { useFeedback } from '../../contexts/FeedbackContext';
-import { get, post, put, del } from '../../api/config';
+import { apiRequest } from '../../api/config';
+import { Ionicons } from '@expo/vector-icons';
 import theme from '../../themes/theme';
-import { commonStyles } from '../../themes';
+import { useFocusEffect } from '@react-navigation/native';
+import DietPlanFormModal from './DietPlanFormScreen'; // Değiştirilecek modal component bağlantısı
 
-const DietPlansScreen = ({ navigation, route }) => {
+const { width } = Dimensions.get('window');
+
+const DietPlansScreen = ({ route, navigation }) => {
   const { clientId, clientName } = route.params || {};
   const { token } = useAuth();
-  const { showToastSuccess, showToastError } = useToast();
-  const { showLoading, hideLoading, showConfirmDialog } = useFeedback();
-
+  
+  const [dietPlans, setDietPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [dietPlans, setDietPlans] = useState([]);
-  const [client, setClient] = useState(null);
-  
-  const [dialogVisible, setDialogVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [newPlan, setNewPlan] = useState({
-    title: '',
-    description: '',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: '',
-    mealCategories: [
-      { name: 'Kahvaltı', meals: [] },
-      { name: 'Öğle Yemeği', meals: [] },
-      { name: 'Akşam Yemeği', meals: [] },
-      { name: 'Ara Öğün', meals: [] }
-    ],
-    notes: ''
-  });
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   
-  const [errors, setErrors] = useState({});
-  const [mealDialogVisible, setMealDialogVisible] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [newMeal, setNewMeal] = useState({
-    name: '',
-    portion: '',
-    calories: '',
-    notes: ''
-  });
+  // Form modal için yeni state'ler
+  const [formModalVisible, setFormModalVisible] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState(null);
   
+  // Header'daki back butonunu kaldırmak için
   useEffect(() => {
-    if (clientId) {
-      loadData();
-      // Ekran başlığını ayarla
-      navigation.setOptions({
-        title: clientName ? `${clientName} - Diyet Planları` : 'Diyet Planları'
-      });
-    } else {
-      setLoading(false);
-    }
-  }, [clientId]);
-
-  const loadData = async () => {
+    navigation.setOptions({
+      headerLeft: () => null, // Bu satır geri tuşunu kaldırır
+      title: clientName ? `${clientName} - Diyet Planları` : 'Diyet Planları'
+    });
+  }, [navigation, clientName]);
+  
+  const loadDietPlans = async () => {
     try {
       setLoading(true);
+      let endpoint = '/diet-plans';
       
-      // Danışan bilgilerini al
-      const clientData = await get(`/clients/${clientId}`, token);
-      setClient(clientData);
+      if (clientId) {
+        endpoint = `/diet-plans?clientId=${clientId}`;
+      }
       
-      // Diyet planlarını al
-      const dietPlansData = await get(`/clients/${clientId}/diet-plans`, token);
-      setDietPlans(dietPlansData || []);
+      const data = await apiRequest('GET', endpoint, null, token);
+      
+      if (data) {
+        setDietPlans(data);
+      } else {
+        setDietPlans([]);
+      }
     } catch (error) {
-      console.error('Veri yükleme hatası:', error);
-      showToastError('Veriler yüklenirken bir hata oluştu');
+      Alert.alert('Hata', 'Diyet planları yüklenirken bir sorun oluştu.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // Ekran odaklandığında verileri yükle
+  useFocusEffect(
+    React.useCallback(() => {
+      loadDietPlans();
+      return () => {};
+    }, [clientId])
+  );
+
   const onRefresh = () => {
     setRefreshing(true);
-    loadData();
+    loadDietPlans();
   };
 
-  const validatePlanForm = () => {
-    const newErrors = {};
-    
-    if (!newPlan.title.trim()) {
-      newErrors.title = 'Plan başlığı gereklidir';
-    }
-    
-    if (!newPlan.startDate) {
-      newErrors.startDate = 'Başlangıç tarihi gereklidir';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const showSnackbar = (message) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
   };
 
-  const validateMealForm = () => {
-    const newErrors = {};
-    
-    if (!newMeal.name.trim()) {
-      newErrors.name = 'Yemek adı gereklidir';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleCreatePlan = () => {
+    setIsEditing(false);
+    setSelectedPlanId(null);
+    setFormModalVisible(true);
   };
 
-  const handleAddPlan = () => {
-    setNewPlan({
-      title: '',
-      description: '',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: '',
-      mealCategories: [
-        { name: 'Kahvaltı', meals: [] },
-        { name: 'Öğle Yemeği', meals: [] },
-        { name: 'Akşam Yemeği', meals: [] },
-        { name: 'Ara Öğün', meals: [] }
-      ],
-      notes: ''
+  const showMenu = (plan, event) => {
+    const { nativeEvent } = event;
+    setMenuPosition({
+      x: nativeEvent.pageX,
+      y: nativeEvent.pageY
     });
-    setSelectedPlan(null);
-    setDialogVisible(true);
-  };
-
-  const handleEditPlan = (plan) => {
     setSelectedPlan(plan);
-    setNewPlan({
-      title: plan.title,
-      description: plan.description || '',
-      startDate: plan.startDate ? plan.startDate.split('T')[0] : '',
-      endDate: plan.endDate ? plan.endDate.split('T')[0] : '',
-      mealCategories: plan.mealCategories || [
-        { name: 'Kahvaltı', meals: [] },
-        { name: 'Öğle Yemeği', meals: [] },
-        { name: 'Akşam Yemeği', meals: [] },
-        { name: 'Ara Öğün', meals: [] }
-      ],
-      notes: plan.notes || ''
-    });
-    setDialogVisible(true);
+    setMenuVisible(true);
   };
 
-  const handleDeletePlan = (planId) => {
-    showConfirmDialog(
-      'Planı Sil',
-      'Bu diyet planını silmek istediğinize emin misiniz?',
-      async () => {
-        try {
-          showLoading('Diyet planı siliniyor...');
-          
-          await del(`/clients/${clientId}/diet-plans/${planId}`, token);
-          
-          showToastSuccess('Diyet planı başarıyla silindi');
-          loadData();
-        } catch (error) {
-          console.error('Plan silme hatası:', error);
-          showToastError('Diyet planı silinirken bir hata oluştu');
-        } finally {
-          hideLoading();
-        }
+  const hideMenu = () => {
+    setMenuVisible(false);
+  };
+
+  const handleEditPlan = () => {
+    hideMenu();
+    setIsEditing(true);
+    setSelectedPlanId(selectedPlan._id);
+    setFormModalVisible(true);
+  };
+
+  const handleFormSubmit = (success, action) => {
+    if (success) {
+      loadDietPlans();
+      showSnackbar(action === 'create' ? 'Diyet planı başarıyla oluşturuldu!' : 'Diyet planı başarıyla güncellendi!');
+    }
+  };
+
+  const confirmDelete = () => {
+    hideMenu();
+    setDeleteDialogVisible(true);
+  };
+
+  const handleDeletePlan = async () => {
+    try {
+      setLoading(true);
+      await apiRequest('DELETE', `/diet-plans/${selectedPlan._id}`, null, token);
+      
+      setDeleteDialogVisible(false);
+      const updatedPlans = dietPlans.filter(plan => plan._id !== selectedPlan._id);
+      setDietPlans(updatedPlans);
+      
+      showSnackbar('Diyet planı başarıyla silindi');
+    } catch (error) {
+      Alert.alert('Hata', 'Diyet planı silinirken bir sorun oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    try {
+      if (!dateString) return 'Tarih belirtilmemiş';
+      
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Geçersiz tarih';
+      
+      // Türkçe tarih için özel format
+      const day = date.getDate().toString().padStart(2, '0');
+      const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+      const month = monthNames[date.getMonth()];
+      const year = date.getFullYear();
+      
+      return `${day} ${month} ${year}`;
+    } catch (error) {
+      return 'Geçersiz tarih';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active':
+        return { bg: '#E8F5E9', text: '#4CAF50', border: '#A5D6A7', icon: 'checkmark-circle' };
+      case 'completed':
+        return { bg: '#E3F2FD', text: '#2196F3', border: '#90CAF9', icon: 'checkmark-done-circle' };
+      case 'pending':
+        return { bg: '#FFF8E1', text: '#FFC107', border: '#FFE082', icon: 'time' };
+      case 'archived':
+        return { bg: '#EFEBE9', text: '#795548', border: '#BCAAA4', icon: 'archive' };
+      default:
+        return { bg: '#E0E0E0', text: '#757575', border: '#BDBDBD', icon: 'help-circle' };
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'active': return 'Aktif';
+      case 'completed': return 'Tamamlandı';
+      case 'pending': return 'Beklemede';
+      case 'archived': return 'Arşivlendi';
+      default: return status;
+    }
+  };
+
+  const getRemainingDays = (endDate) => {
+    if (!endDate) return null;
+    
+    const today = new Date();
+    const end = new Date(endDate);
+    
+    if (isNaN(end.getTime())) return null;
+    
+    const diffTime = end - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+
+  const getProgressColor = (remainingDays) => {
+    if (remainingDays <= 0) return '#d32f2f';
+    if (remainingDays <= 3) return '#ff9800';
+    if (remainingDays <= 7) return '#ffc107';
+    return '#4caf50';
+  };
+
+  const parseMeals = (plan) => {
+    try {
+      // Content json string olarak saklanıyor olabilir
+      if (typeof plan.content === 'string') {
+        return JSON.parse(plan.content);
       }
+      // Veya direkt meals dizisi olarak
+      if (Array.isArray(plan.meals)) {
+        return plan.meals;
+      }
+      return [];
+    } catch (error) {
+      return [];
+    }
+  };
+
+  const getDurationText = (startDate, endDate) => {
+    if (!startDate || !endDate) return '';
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return '';
+    
+    const diffTime = end - start;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return `${diffDays} gün`;
+  };
+
+  const renderDietPlanItem = ({ item }) => {
+    const meals = parseMeals(item);
+    const statusStyle = getStatusColor(item.status);
+    const remainingDays = getRemainingDays(item.endDate);
+    const progressColor = getProgressColor(remainingDays);
+    const duration = getDurationText(item.startDate, item.endDate);
+    
+    // Toplam makro besinlerin yüzdesel dağılımı
+    const totalMacros = (item.macroProtein || 0) + (item.macroCarbs || 0) + (item.macroFat || 0);
+    const proteinPercent = totalMacros ? Math.round((item.macroProtein || 0) / totalMacros * 100) : 0;
+    const carbsPercent = totalMacros ? Math.round((item.macroCarbs || 0) / totalMacros * 100) : 0;
+    const fatPercent = totalMacros ? Math.round((item.macroFat || 0) / totalMacros * 100) : 0;
+
+    return (
+      <Card style={styles.planCard} elevation={3}>
+        {/* Üst Bilgi Alanı */}
+        <View style={styles.cardHeader}>
+          <View style={styles.statusContainer}>
+            <Ionicons name={statusStyle.icon} size={22} color={statusStyle.text} style={styles.statusIcon} />
+            <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg, borderColor: statusStyle.border }]}>
+              <Text style={[styles.statusText, { color: statusStyle.text }]}>
+                {getStatusText(item.status)}
+              </Text>
+            </View>
+          </View>
+          <IconButton
+            icon="dots-vertical"
+            size={22}
+            onPress={(e) => showMenu(item, e)}
+            style={styles.menuButton}
+          />
+        </View>
+        
+        {/* Plan Başlık ve Bilgileri */}
+        <Card.Content style={styles.cardContent}>
+          <Text style={styles.planTitle}>{item.title}</Text>
+          
+          {item.description && (
+            <Text style={styles.description}>{item.description}</Text>
+          )}
+          
+          <View style={styles.dateContainer}>
+            <View style={styles.dateBox}>
+              <Text style={styles.dateBoxLabel}>Başlangıç</Text>
+              <Text style={styles.dateBoxValue}>{formatDate(item.startDate)}</Text>
+            </View>
+            
+            <View style={styles.durationBox}>
+              <Ionicons name="calendar-outline" size={16} color="#5c6bc0" />
+              <Text style={styles.durationText}>{duration}</Text>
+            </View>
+            
+            <View style={styles.dateBox}>
+              <Text style={styles.dateBoxLabel}>Bitiş</Text>
+              <Text style={styles.dateBoxValue}>{formatDate(item.endDate)}</Text>
+            </View>
+          </View>
+          
+          {remainingDays !== null && (
+            <View style={styles.remainingContainer}>
+              <View style={styles.remainingTextContainer}>
+                <Text style={styles.remainingLabel}>
+                  {remainingDays > 0 ? 'Kalan Süre:' : 'Süresi Doldu:'}
+                </Text>
+                <Text style={[
+                  styles.remainingValue, 
+                  { color: remainingDays > 0 ? '#4caf50' : '#d32f2f' }
+                ]}>
+                  {remainingDays > 0 ? `${remainingDays} gün` : `${Math.abs(remainingDays)} gün önce`}
+                </Text>
+              </View>
+              <ProgressBar 
+                progress={Math.max(0, Math.min(1, remainingDays / 30))} 
+                color={progressColor}
+                style={styles.progressBar}
+              />
+            </View>
+          )}
+          
+          <Divider style={styles.divider} />
+          
+          {/* Kalori ve Makro Bilgileri */}
+          <View style={styles.nutritionSection}>
+            <View style={styles.calorieSection}>
+              <Avatar.Icon 
+                icon="fire" 
+                size={40} 
+                style={styles.calorieIcon} 
+                color="#fff"
+              />
+              <View style={styles.calorieInfo}>
+                <Text style={styles.calorieValue}>{item.dailyCalories || 0}</Text>
+                <Text style={styles.calorieLabel}>kalori/gün</Text>
+              </View>
+            </View>
+            
+            <View style={styles.macroSection}>
+              <View style={styles.macroHeader}>
+                <Text style={styles.macroTitle}>Makro Besinler</Text>
+                <Text style={styles.macroTotal}>{totalMacros}g</Text>
+              </View>
+              
+              <View style={styles.macroBarContainer}>
+                {proteinPercent > 0 && (
+                  <View 
+                    style={[
+                      styles.macroBarSegment, 
+                      {backgroundColor: '#4caf50', flex: proteinPercent}
+                    ]} 
+                  />
+                )}
+                {carbsPercent > 0 && (
+                  <View 
+                    style={[
+                      styles.macroBarSegment, 
+                      {backgroundColor: '#2196f3', flex: carbsPercent}
+                    ]} 
+                  />
+                )}
+                {fatPercent > 0 && (
+                  <View 
+                    style={[
+                      styles.macroBarSegment, 
+                      {backgroundColor: '#ff9800', flex: fatPercent}
+                    ]} 
+                  />
+                )}
+              </View>
+              
+              <View style={styles.macroLegend}>
+                <View style={styles.macroLegendItem}>
+                  <View style={[styles.macroLegendColor, {backgroundColor: '#4caf50'}]} />
+                  <Text style={styles.macroLegendText}>Protein: {item.macroProtein || 0}g ({proteinPercent}%)</Text>
+                </View>
+                <View style={styles.macroLegendItem}>
+                  <View style={[styles.macroLegendColor, {backgroundColor: '#2196f3'}]} />
+                  <Text style={styles.macroLegendText}>Karbonhidrat: {item.macroCarbs || 0}g ({carbsPercent}%)</Text>
+                </View>
+                <View style={styles.macroLegendItem}>
+                  <View style={[styles.macroLegendColor, {backgroundColor: '#ff9800'}]} />
+                  <Text style={styles.macroLegendText}>Yağ: {item.macroFat || 0}g ({fatPercent}%)</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+          
+          {/* Öğün Bilgileri */}
+          {meals && meals.length > 0 && (
+            <View style={styles.mealsContainer}>
+              <Text style={styles.sectionTitle}>
+                <Ionicons name="restaurant-outline" size={18} color="#455a64" /> Öğünler
+              </Text>
+              <View style={styles.mealsList}>
+                {meals.slice(0, 4).map((meal, index) => (
+                  <View key={index} style={styles.mealItem}>
+                    <Text style={styles.mealName}>{meal.name}</Text>
+                    {meal.foods && meal.foods.length > 0 && (
+                      <Text style={styles.mealFoods}>
+                        {meal.foods.slice(0, 2).map(food => food.name).filter(Boolean).join(', ')}
+                        {meal.foods.length > 2 ? ` (+${meal.foods.length - 2})` : ''}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+                {meals.length > 4 && (
+                  <Text style={styles.moreMeals}>+{meals.length - 4} öğün daha</Text>
+                )}
+              </View>
+            </View>
+          )}
+          
+          {item.attachments && item.attachments.length > 0 && (
+            <View style={styles.attachmentsContainer}>
+              <Chip 
+                icon="attachment" 
+                style={styles.attachmentChip}
+                textStyle={styles.attachmentChipText}
+              >
+                {item.attachments.length} ek dosya
+              </Chip>
+            </View>
+          )}
+        </Card.Content>
+      </Card>
     );
   };
 
-  const savePlan = async () => {
-    if (!validatePlanForm()) {
-      return;
-    }
-    
-    try {
-      showLoading('Diyet planı kaydediliyor...');
-      
-      // Sayısal alanları dönüştür
-      const planData = {
-        ...newPlan,
-        clientId
-      };
-      
-      let response;
-      if (selectedPlan) {
-        // Güncelleme
-        response = await put(`/clients/${clientId}/diet-plans/${selectedPlan._id}`, planData, token);
-      } else {
-        // Yeni ekleme
-        response = await post(`/clients/${clientId}/diet-plans`, planData, token);
-      }
-      
-      setDialogVisible(false);
-      showToastSuccess(`Diyet planı başarıyla ${selectedPlan ? 'güncellendi' : 'oluşturuldu'}`);
-      
-      loadData();
-    } catch (error) {
-      console.error('Plan kaydetme hatası:', error);
-      showToastError('Diyet planı kaydedilirken bir hata oluştu');
-    } finally {
-      hideLoading();
-    }
-  };
-
-  const handleAddMeal = (categoryIndex) => {
-    setSelectedCategory(categoryIndex);
-    setNewMeal({
-      name: '',
-      portion: '',
-      calories: '',
-      notes: ''
-    });
-    setMealDialogVisible(true);
-  };
-
-  const handleDeleteMeal = (categoryIndex, mealIndex) => {
-    const updatedCategories = [...newPlan.mealCategories];
-    updatedCategories[categoryIndex].meals.splice(mealIndex, 1);
-    
-    setNewPlan({
-      ...newPlan,
-      mealCategories: updatedCategories
-    });
-  };
-
-  const saveMeal = () => {
-    if (!validateMealForm()) {
-      return;
-    }
-    
-    const updatedCategories = [...newPlan.mealCategories];
-    
-    // Sayısal alanları işle
-    const mealToAdd = {
-      ...newMeal,
-      calories: newMeal.calories ? parseInt(newMeal.calories) : undefined
-    };
-    
-    updatedCategories[selectedCategory].meals.push(mealToAdd);
-    
-    setNewPlan({
-      ...newPlan,
-      mealCategories: updatedCategories
-    });
-    
-    setMealDialogVisible(false);
-  };
+  const renderEmptyList = () => (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="nutrition-outline" size={70} color="#e0e0e0" />
+      <Text style={styles.emptyText}>
+        {clientId 
+          ? `${clientName || 'Bu danışan'} için henüz diyet planı bulunmuyor.` 
+          : 'Henüz diyet planı bulunmuyor.'}
+      </Text>
+      <Button 
+        mode="contained" 
+        onPress={handleCreatePlan}
+        style={styles.emptyButton}
+        icon="plus"
+      >
+        Yeni Plan Oluştur
+      </Button>
+    </View>
+  );
 
   if (loading && !refreshing) {
     return (
-      <View style={commonStyles.loadingContainer}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.palette.primary.main} />
-        <Text style={commonStyles.loadingText}>Diyet planları yükleniyor...</Text>
+        <Text style={styles.loadingText}>Diyet planları yükleniyor...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
+      <FlatList
+        data={dietPlans}
+        renderItem={renderDietPlanItem}
+        keyExtractor={(item) => item._id}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={renderEmptyList}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh} 
-            colors={[theme.palette.primary.main]} 
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.palette.primary.main]}
+            tintColor={theme.palette.primary.main}
           />
         }
-      >
-        {/* Diyet Planları */}
-        {dietPlans.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Card.Content style={styles.emptyContent}>
-              <Ionicons name="nutrition-outline" size={50} color={theme.palette.grey[400]} />
-              <Text style={styles.emptyText}>Henüz diyet planı oluşturulmamış</Text>
-              <Text style={styles.emptySubtext}>
-                Yeni bir diyet planı oluşturmak için sağ alttaki + butonuna basabilirsiniz
-              </Text>
-            </Card.Content>
-          </Card>
-        ) : (
-          dietPlans.map((plan, index) => (
-            <Card key={plan._id || index} style={styles.planCard}>
-              <Card.Content>
-                <View style={styles.cardHeader}>
-                  <View style={styles.titleContainer}>
-                    <Title style={styles.planTitle}>{plan.title}</Title>
-                    {plan.startDate && (
-                      <Chip icon="calendar" style={styles.dateChip}>
-                        {new Date(plan.startDate).toLocaleDateString('tr-TR')}
-                        {plan.endDate && ` - ${new Date(plan.endDate).toLocaleDateString('tr-TR')}`}
-                      </Chip>
-                    )}
-                  </View>
-                  <View style={styles.actionButtons}>
-                    <IconButton
-                      icon="pencil"
-                      size={20}
-                      onPress={() => handleEditPlan(plan)}
-                    />
-                    <IconButton
-                      icon="delete"
-                      size={20}
-                      onPress={() => handleDeletePlan(plan._id)}
-                    />
-                  </View>
-                </View>
-                
-                {plan.description && (
-                  <Paragraph style={styles.description}>{plan.description}</Paragraph>
-                )}
-                
-                {plan.mealCategories && plan.mealCategories.map((category, categoryIndex) => (
-                  <View key={categoryIndex} style={styles.mealCategory}>
-                    <Text style={styles.categoryName}>{category.name}</Text>
-                    
-                    {category.meals && category.meals.length > 0 ? (
-                      category.meals.map((meal, mealIndex) => (
-                        <View key={mealIndex} style={styles.mealItem}>
-                          <Text style={styles.mealName}>{meal.name}</Text>
-                          {meal.portion && (
-                            <Text style={styles.mealDetail}>Porsiyon: {meal.portion}</Text>
-                          )}
-                          {meal.calories && (
-                            <Text style={styles.mealDetail}>Kalori: {meal.calories} kcal</Text>
-                          )}
-                          {meal.notes && (
-                            <Text style={styles.mealNotes}>{meal.notes}</Text>
-                          )}
-                        </View>
-                      ))
-                    ) : (
-                      <Text style={styles.emptyMealText}>Yemek eklenmemiş</Text>
-                    )}
-                  </View>
-                ))}
-                
-                {plan.notes && (
-                  <View style={styles.notesContainer}>
-                    <Text style={styles.notesLabel}>Notlar:</Text>
-                    <Text style={styles.notesText}>{plan.notes}</Text>
-                  </View>
-                )}
-              </Card.Content>
-            </Card>
-          ))
-        )}
-      </ScrollView>
-      
-      {/* Yeni Diyet Planı Ekleme FAB */}
+      />
+
       <FAB
         style={styles.fab}
         icon="plus"
-        color={theme.palette.background.paper}
-        onPress={handleAddPlan}
+        label="Yeni Plan"
+        onPress={handleCreatePlan}
+        color="#fff"
       />
-      
-      {/* Diyet Planı Dialog */}
-      <Dialog 
-        visible={dialogVisible} 
-        onDismiss={() => setDialogVisible(false)}
-        style={styles.dialog}
-      >
-        <Dialog.Title>{selectedPlan ? 'Diyet Planını Düzenle' : 'Yeni Diyet Planı'}</Dialog.Title>
-        <Dialog.ScrollArea style={styles.dialogScrollArea}>
-          <ScrollView contentContainerStyle={styles.dialogContent}>
-            <TextInput
-              label="Plan Başlığı *"
-              value={newPlan.title}
-              onChangeText={(text) => setNewPlan({...newPlan, title: text})}
-              mode="outlined"
-              style={styles.input}
-              error={!!errors.title}
-            />
-            {errors.title && <HelperText type="error">{errors.title}</HelperText>}
-            
-            <TextInput
-              label="Açıklama"
-              value={newPlan.description}
-              onChangeText={(text) => setNewPlan({...newPlan, description: text})}
-              mode="outlined"
-              style={styles.input}
-            />
-            
-            <View style={styles.rowInputs}>
-              <TextInput
-                label="Başlangıç Tarihi *"
-                value={newPlan.startDate}
-                onChangeText={(text) => setNewPlan({...newPlan, startDate: text})}
-                mode="outlined"
-                style={[styles.input, styles.halfInput]}
-                placeholder="YYYY-MM-DD"
-                error={!!errors.startDate}
-              />
-              
-              <TextInput
-                label="Bitiş Tarihi"
-                value={newPlan.endDate}
-                onChangeText={(text) => setNewPlan({...newPlan, endDate: text})}
-                mode="outlined"
-                style={[styles.input, styles.halfInput]}
-                placeholder="YYYY-MM-DD"
-              />
-            </View>
-            {errors.startDate && <HelperText type="error">{errors.startDate}</HelperText>}
-            
-            <Text style={styles.sectionTitle}>Öğünler</Text>
-            
-            {newPlan.mealCategories.map((category, categoryIndex) => (
-              <View key={categoryIndex} style={styles.mealCategoryContainer}>
-                <View style={styles.mealCategoryHeader}>
-                  <Text style={styles.mealCategoryTitle}>{category.name}</Text>
-                  <Button 
-                    mode="text" 
-                    onPress={() => handleAddMeal(categoryIndex)}
-                    icon="plus"
-                  >
-                    Yemek Ekle
-                  </Button>
-                </View>
-                
-                {category.meals && category.meals.length > 0 ? (
-                  category.meals.map((meal, mealIndex) => (
-                    <View key={mealIndex} style={styles.mealItemEdit}>
-                      <View style={styles.mealItemContent}>
-                        <Text style={styles.mealNameEdit}>{meal.name}</Text>
-                        <View style={styles.mealDetails}>
-                          {meal.portion && <Text style={styles.mealDetailEdit}>Porsiyon: {meal.portion}</Text>}
-                          {meal.calories && <Text style={styles.mealDetailEdit}>Kalori: {meal.calories} kcal</Text>}
-                        </View>
-                      </View>
-                      <IconButton
-                        icon="delete"
-                        size={16}
-                        onPress={() => handleDeleteMeal(categoryIndex, mealIndex)}
-                        style={styles.deleteMealButton}
-                      />
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.emptyMealEditText}>Bu öğünde henüz yemek bulunmuyor</Text>
-                )}
-              </View>
-            ))}
-            
-            <TextInput
-              label="Notlar"
-              value={newPlan.notes}
-              onChangeText={(text) => setNewPlan({...newPlan, notes: text})}
-              mode="outlined"
-              multiline
-              numberOfLines={3}
-              style={[styles.input, styles.textArea]}
-            />
-          </ScrollView>
-        </Dialog.ScrollArea>
-        <Dialog.Actions>
-          <Button onPress={() => setDialogVisible(false)}>İptal</Button>
-          <Button onPress={savePlan}>Kaydet</Button>
-        </Dialog.Actions>
-      </Dialog>
-      
-      {/* Yemek Ekleme Dialog */}
-      <Dialog 
-        visible={mealDialogVisible} 
-        onDismiss={() => setMealDialogVisible(false)}
-      >
-        <Dialog.Title>Yemek Ekle</Dialog.Title>
-        <Dialog.Content>
-          <TextInput
-            label="Yemek Adı *"
-            value={newMeal.name}
-            onChangeText={(text) => setNewMeal({...newMeal, name: text})}
-            mode="outlined"
-            style={styles.input}
-            error={!!errors.name}
+
+      <Portal>
+        <Menu
+          visible={menuVisible}
+          onDismiss={hideMenu}
+          anchor={menuPosition}
+          contentStyle={styles.menuContent}
+        >
+          <Menu.Item 
+            onPress={handleEditPlan} 
+            title="Düzenle" 
+            leadingIcon="pencil" 
           />
-          {errors.name && <HelperText type="error">{errors.name}</HelperText>}
-          
-          <TextInput
-            label="Porsiyon"
-            value={newMeal.portion}
-            onChangeText={(text) => setNewMeal({...newMeal, portion: text})}
-            mode="outlined"
-            style={styles.input}
-            placeholder="Örn: 100g, 1 dilim, 1 porsiyon"
+          <Menu.Item 
+            onPress={confirmDelete} 
+            title="Sil" 
+            leadingIcon="delete"
+            titleStyle={{ color: '#f44336' }} 
           />
-          
-          <TextInput
-            label="Kalori (kcal)"
-            value={newMeal.calories}
-            onChangeText={(text) => setNewMeal({...newMeal, calories: text})}
-            mode="outlined"
-            keyboardType="numeric"
-            style={styles.input}
-          />
-          
-          <TextInput
-            label="Notlar"
-            value={newMeal.notes}
-            onChangeText={(text) => setNewMeal({...newMeal, notes: text})}
-            mode="outlined"
-            multiline
-            numberOfLines={2}
-            style={[styles.input, { minHeight: 60 }]}
-          />
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button onPress={() => setMealDialogVisible(false)}>İptal</Button>
-          <Button onPress={saveMeal}>Ekle</Button>
-        </Dialog.Actions>
-      </Dialog>
+        </Menu>
+
+        <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>
+          <Dialog.Title>Diyet Planını Sil</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              "{selectedPlan?.title}" adlı diyet planını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setDeleteDialogVisible(false)}>İptal</Button>
+            <Button onPress={handleDeletePlan} textColor="#f44336">Sil</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Diyet Planı Form Modalı */}
+        <DietPlanFormModal
+          visible={formModalVisible}
+          onDismiss={() => setFormModalVisible(false)}
+          onSubmit={handleFormSubmit}
+          isEditing={isEditing}
+          planId={selectedPlanId}
+          clientId={clientId}
+          clientName={clientName}
+          token={token}
+        />
+
+        {/* Bildirim çubuğu */}
+        <Snackbar
+          visible={snackbarVisible}
+          onDismiss={() => setSnackbarVisible(false)}
+          duration={3000}
+          action={{
+            label: 'Tamam',
+            onPress: () => setSnackbarVisible(false),
+          }}
+        >
+          {snackbarMessage}
+        </Snackbar>
+      </Portal>
     </View>
   );
 };
@@ -538,210 +561,287 @@ const DietPlansScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.palette.background.default,
+    backgroundColor: '#f8f9fa',
   },
-  scrollContent: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.xl * 2,
-  },
-  emptyCard: {
-    borderRadius: theme.shape.borderRadius.md,
-    ...theme.shadows.sm,
-  },
-  emptyContent: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#757575',
+  },
+  listContainer: {
+    padding: 12,
+    paddingBottom: 80,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    minHeight: 300,
   },
   emptyText: {
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.palette.text.secondary,
-    marginTop: theme.spacing.md,
+    fontSize: 16,
+    color: '#757575',
+    marginBottom: 20,
     textAlign: 'center',
   },
-  emptySubtext: {
-    fontSize: theme.typography.fontSize.md,
-    color: theme.palette.text.secondary,
-    marginTop: theme.spacing.sm,
-    textAlign: 'center',
+  emptyButton: {
+    marginTop: 10,
+    backgroundColor: theme.palette.primary.main,
   },
   planCard: {
-    marginBottom: theme.spacing.md,
-    borderRadius: theme.shape.borderRadius.md,
-    ...theme.shadows.sm,
+    marginBottom: 16,
+    borderRadius: 16,
+    elevation: 3,
+    overflow: 'hidden',
+    backgroundColor: 'white',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4caf50',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.xs,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  titleContainer: {
-    flex: 1,
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusIcon: {
+    marginRight: 6,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cardContent: {
+    padding: 16,
   },
   planTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.palette.text.primary,
-  },
-  dateChip: {
-    marginTop: theme.spacing.xs,
-    height: 28,
-    alignSelf: 'flex-start',
-  },
-  actionButtons: {
-    flexDirection: 'row',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#263238',
+    marginBottom: 6,
   },
   description: {
-    fontSize: theme.typography.fontSize.md,
-    color: theme.palette.text.secondary,
-    marginBottom: theme.spacing.md,
+    fontSize: 14,
+    color: '#455a64',
+    marginBottom: 12,
+    lineHeight: 20,
   },
-  mealCategory: {
-    marginBottom: theme.spacing.md,
+  dateContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  categoryName: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.palette.primary.main,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.palette.grey[300],
-    paddingBottom: theme.spacing.xs,
-    marginBottom: theme.spacing.sm,
+  dateBox: {
+    alignItems: 'center',
   },
-  mealItem: {
-    marginBottom: theme.spacing.sm,
-    paddingLeft: theme.spacing.sm,
-  },
-  mealName: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.medium,
-    color: theme.palette.text.primary,
-  },
-  mealDetail: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.palette.text.secondary,
-  },
-  mealNotes: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.palette.text.secondary,
-    fontStyle: 'italic',
-    marginTop: 2,
-  },
-  emptyMealText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.palette.text.disabled,
-    fontStyle: 'italic',
-    paddingLeft: theme.spacing.sm,
-  },
-  notesContainer: {
-    marginTop: theme.spacing.sm,
-    padding: theme.spacing.sm,
-    backgroundColor: theme.palette.grey[100],
-    borderRadius: theme.shape.borderRadius.sm,
-  },
-  notesLabel: {
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.palette.text.primary,
+  dateBoxLabel: {
+    fontSize: 12,
+    color: '#546e7a',
     marginBottom: 2,
   },
-  notesText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.palette.text.secondary,
+  dateBoxValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#263238',
+  },
+  durationBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#e8eaf6',
+    borderRadius: 15,
+  },
+  durationText: {
+    marginLeft: 4,
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#3f51b5',
+  },
+  remainingContainer: {
+    marginVertical: 12,
+  },
+  remainingTextContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  remainingLabel: {
+    fontSize: 12,
+    color: '#546e7a',
+  },
+  remainingValue: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  progressBar: {
+    height: 6,
+    borderRadius: 3,
+  },
+  divider: {
+    marginVertical: 12,
+    height: 1,
+    backgroundColor: '#e0e0e0',
+  },
+  nutritionSection: {
+    marginBottom: 16,
+  },
+  calorieSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  calorieIcon: {
+    backgroundColor: '#ff5722',
+  },
+  calorieInfo: {
+    marginLeft: 12,
+  },
+  calorieValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#263238',
+  },
+  calorieLabel: {
+    fontSize: 12,
+    color: '#757575',
+  },
+  macroSection: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 12,
+  },
+  macroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  macroTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#455a64',
+  },
+  macroTotal: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#455a64',
+  },
+  macroBarContainer: {
+    flexDirection: 'row',
+    height: 12,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 10,
+    backgroundColor: '#e0e0e0',
+  },
+  macroBarSegment: {
+    height: '100%',
+  },
+  macroLegend: {
+    marginTop: 6,
+  },
+  macroLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  macroLegendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  macroLegendText: {
+    fontSize: 12,
+    color: '#455a64',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#455a64',
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mealsContainer: {
+    marginTop: 8,
+  },
+  mealsList: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 10,
+  },
+  mealItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eeeeee',
+    marginBottom: 4,
+  },
+  mealName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#263238',
+    marginBottom: 2,
+  },
+  mealFoods: {
+    fontSize: 12,
+    color: '#607d8b',
+  },
+  moreMeals: {
+    fontSize: 12,
+    color: '#546e7a',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingTop: 8,
+  },
+  attachmentsContainer: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+  },
+  attachmentChip: {
+    backgroundColor: '#e3f2fd',
+  },
+  attachmentChipText: {
+    fontSize: 12,
+    color: '#1976d2',
+  },
+  menuButton: {
+    margin: 0,
+  },
+  menuContent: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    elevation: 4,
   },
   fab: {
     position: 'absolute',
-    margin: theme.spacing.md,
+    margin: 16,
     right: 0,
     bottom: 0,
     backgroundColor: theme.palette.primary.main,
-  },
-  dialog: {
-    maxHeight: '90%',
-  },
-  dialogScrollArea: {
-    paddingHorizontal: 0,
-  },
-  dialogContent: {
-    padding: theme.spacing.md,
-  },
-  input: {
-    marginBottom: theme.spacing.sm,
-    backgroundColor: theme.palette.background.paper,
-  },
-  rowInputs: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  halfInput: {
-    flex: 1,
-    marginHorizontal: theme.spacing.xs / 2,
-  },
-  textArea: {
-    minHeight: 80,
-  },
-  sectionTitle: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.palette.text.primary,
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  mealCategoryContainer: {
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.sm,
-    backgroundColor: theme.palette.grey[50],
-    borderRadius: theme.shape.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: theme.palette.grey[200],
-  },
-  mealCategoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  mealCategoryTitle: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.palette.text.primary,
-  },
-  mealItemEdit: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.palette.grey[200],
-  },
-  mealItemContent: {
-    flex: 1,
-  },
-  mealNameEdit: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.medium,
-    color: theme.palette.text.primary,
-  },
-  mealDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  mealDetailEdit: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.palette.text.secondary,
-    marginRight: theme.spacing.md,
-  },
-  deleteMealButton: {
-    margin: 0,
-  },
-  emptyMealEditText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.palette.text.disabled,
-    fontStyle: 'italic',
-    padding: theme.spacing.sm,
-    textAlign: 'center',
-  },
+  }
 });
 
 export default DietPlansScreen; 
