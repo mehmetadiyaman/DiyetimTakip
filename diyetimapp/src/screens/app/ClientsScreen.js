@@ -54,8 +54,20 @@ const ClientsScreen = ({ navigation }) => {
     try {
       setError(null);
       const data = await apiRequest('GET', '/clients', null, token);
-      setClients(data || []);
-      filterAndSortClients(data || [], activeFilter, sortOption, searchQuery);
+      
+      // API'den gelen verileri kontrol et
+      console.log('Yüklenen danışan sayısı:', data ? data.length : 0);
+      
+      // Null kontrolü yapalım
+      if (!data) {
+        setClients([]);
+        setFilteredClients([]);
+        console.log('API verileri boş döndü');
+        return;
+      }
+      
+      setClients(data);
+      filterAndSortClients(data, activeFilter, sortOption, searchQuery);
     } catch (err) {
       console.error('Danışanları yükleme hatası:', err);
       setError('Danışanları yüklerken bir hata oluştu');
@@ -133,8 +145,11 @@ const ClientsScreen = ({ navigation }) => {
   };
 
   const onRefresh = () => {
+    console.log('Yenileniyor...');
     setRefreshing(true);
-    loadClients();
+    setTimeout(() => {
+      loadClients();
+    }, 100);
   };
 
   // Arama değişikliğinde çağrılacak
@@ -427,6 +442,7 @@ const ClientsScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
+          style={styles.flatList}
           data={filteredClients}
           renderItem={renderItem}
           keyExtractor={(item) => item._id}
@@ -555,6 +571,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  flatList: {
+    flex: 1,
+    width: '100%',
   },
   loadingContainer: {
     flex: 1,
