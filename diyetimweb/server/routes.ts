@@ -16,6 +16,7 @@ import {
 } from "../shared/schema";
 import { Activity } from "./models/index";
 import { TelegramService } from "./services/telegramService";
+import { AIService } from "./services/aiService";
 
 // Authentication middleware
 const authenticate = (req: Request, res: Response, next: NextFunction) => {
@@ -36,6 +37,9 @@ const authenticate = (req: Request, res: Response, next: NextFunction) => {
     return res.status(401).json({ message: "Yetkilendirme hatası: Geçersiz token" });
   }
 };
+
+// AI Service instance
+const aiService = new AIService();
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Error handling middleware for zod validation errors
@@ -1022,6 +1026,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Referans kodu oluşturma hatası:', error);
       res.status(500).json({ message: `Referans kodu oluşturulurken bir hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}` });
+    }
+  });
+
+  // AI ROUTES
+  app.post('/api/ai-diet/generate-diet-plan', authenticate, async (req: Request, res: Response) => {
+    try {
+      const { clientId } = req.body;
+      
+      if (!clientId) {
+        return res.status(400).json({ message: "Danışan ID'si zorunludur" });
+      }
+      
+      // Danışanın kullanıcıya ait olup olmadığını kontrol et
+      const client = await storage.getClient(clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Danışan bulunamadı" });
+      }
+      
+      if (client.userId.toString() !== res.locals.userId) {
+        return res.status(403).json({ message: "Bu danışana erişim izniniz yok" });
+      }
+      
+      // AI ile diyet planı oluştur
+      const dietPlan = await aiService.generateDietPlan(clientId);
+      
+      res.json(dietPlan);
+    } catch (error) {
+      console.error("AI Diyet planı hatası:", error);
+      res.status(500).json({ message: `Diyet planı oluşturulurken bir hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}` });
     }
   });
 

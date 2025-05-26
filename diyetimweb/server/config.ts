@@ -35,4 +35,7 @@ export const upload = multer({
 export const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5000;
 
 // Uygulama ortamı
-export const NODE_ENV = process.env.NODE_ENV || 'development'; 
+export const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// Hugging Face API Key
+export const HF_API_KEY = "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"; // Üretim ortamında çevre değişkenlerinden alınmalıdır 

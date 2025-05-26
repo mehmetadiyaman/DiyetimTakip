@@ -225,6 +225,7 @@ export default function DietPlans() {
     { name: "Akşam Yemeği", foods: [{ name: "", amount: "", calories: undefined }] },
     { name: "Ara Öğün", foods: [{ name: "", amount: "", calories: undefined }] },
   ]);
+  const [aiLoading, setAiLoading] = useState(false);
   
   // Fetch diet plans with conversion
   const { data: dietPlans, isLoading } = useQuery({
@@ -702,6 +703,74 @@ export default function DietPlans() {
   // İlgili dietPlans ve clients verilerinin yüklenmesini bekleyen bir yükleme durumu
   const isDataLoading = isLoading || isClientsLoading;
   
+  // AI ile diyet planı oluşturma fonksiyonu
+  const handleAIDietGeneration = async () => {
+    const clientId = form.getValues("clientId");
+    
+    if (!clientId) {
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: "Lütfen önce bir danışan seçin",
+      });
+      return;
+    }
+    
+    setAiLoading(true);
+    
+    try {
+      const response = await fetch('/api/ai-diet/generate-diet-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ clientId })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || 'Diyet planı oluşturulurken bir hata oluştu');
+      }
+      
+      const aiDietPlan = await response.json();
+      console.log("AI Diyet Planı:", aiDietPlan);
+      
+      // Form değerlerini AI önerisiyle doldur
+      form.setValue("name", aiDietPlan.name || "AI Önerisi Diyet Planı");
+      form.setValue("description", aiDietPlan.description || "");
+      form.setValue("dailyCalories", aiDietPlan.dailyCalories || 0);
+      form.setValue("macroProtein", aiDietPlan.macroProtein || 0);
+      form.setValue("macroCarbs", aiDietPlan.macroCarbs || 0);
+      form.setValue("macroFat", aiDietPlan.macroFat || 0);
+      form.setValue("isActive", true);
+      
+      // Bugünün tarihini başlangıç olarak ayarla
+      const today = new Date().toISOString().split('T')[0];
+      form.setValue("startDate", today);
+      
+      // Öğünleri ayarla
+      if (aiDietPlan.meals && Array.isArray(aiDietPlan.meals) && aiDietPlan.meals.length > 0) {
+        form.setValue("meals", aiDietPlan.meals);
+      }
+      
+      toast({
+        title: "Başarılı",
+        description: "Yapay zeka diyet planı oluşturuldu! Lütfen kontrol edip gerekli düzenlemeleri yapın.",
+      });
+      
+    } catch (error) {
+      console.error("AI Diyet Planı hatası:", error);
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: error instanceof Error ? error.message : "Yapay zeka diyet planı oluşturulamadı",
+      });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+  
   return (
     <div className="py-6 px-4 sm:px-6 lg:px-8 pb-24 lg:pb-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
@@ -749,6 +818,31 @@ export default function DietPlans() {
                         </FormItem>
                       )}
                     />
+                    
+                    {/* Yapay Zeka Butonu - Sadece danışan seçildiğinde aktif olacak */}
+                    {form.watch("clientId") && (
+                      <div className="flex justify-center my-4">
+                        <Button 
+                          type="button"
+                          variant="outline" 
+                          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600"
+                          onClick={handleAIDietGeneration}
+                          disabled={aiLoading}
+                        >
+                          {aiLoading ? (
+                            <>
+                              <i className="fas fa-spinner fa-spin mr-2"></i> 
+                              Yapay Zeka Diyet Planı Oluşturuluyor...
+                            </>
+                          ) : (
+                            <>
+                              <i className="fas fa-robot mr-2"></i>
+                              Yapay Zeka ile Diyet Planı Oluştur
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
