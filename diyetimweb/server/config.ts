@@ -38,4 +38,4 @@ export const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5000;
 export const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Hugging Face API Key
-export const HF_API_KEY = "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"; // Üretim ortamında çevre değişkenlerinden alınmalıdır 
+export const HF_API_KEY = process.env.HF_API_KEY || ""; // API anahtarını çevre değişkenlerinden al 
