@@ -6,32 +6,48 @@ export const API_URL = 'https://diettrackerproo.onrender.com/api';
 // Global hata ayıklama modu - geliştirme için true, üretim için false
 const DEBUG_MODE = true;
 
-// Örnek test verisi - HTML yanıt durumunda kullanılacak
-// Not: Bu veri sadece development aşamasında kullanılmalıdır
-const TEST_DIET_PLAN_DATA = {
-  "_id":{"$oid":"68306de55ad1372d82cff6ea"},
-  "clientId":{"$oid":"68252cd15f1e847d629a8411"},
-  "title":"kilo verme",
-  "startDate":{"$date":{"$numberLong":"1747267200000"}},
-  "endDate":{"$date":{"$numberLong":"1748563200000"}},
-  "content":"[{\"name\":\"Kahvaltı\",\"foods\":[{\"name\":\"brokoli\",\"amount\":\"2\",\"calories\":90},{\"name\":\"yumurta\",\"amount\":\"3\",\"calories\":64}]},{\"name\":\"Öğle Yemeği\",\"foods\":[{\"name\":\"yumurta\",\"amount\":\"25\",\"calories\":42}]},{\"name\":\"Akşam Yemeği\",\"foods\":[{\"name\":\"su\",\"amount\":\"56\",\"calories\":11}]},{\"name\":\"Ara Öğün\",\"foods\":[{\"name\":\"\",\"amount\":\"\"}]}]",
-  "description":"kilo vericek",
-  "status":"active",
-  "createdBy":{"$oid":"6805a339a2356a10a19e08c9"},
-  "createdAt":{"$date":{"$numberLong":"1747267662076"}},
-  "updatedAt":{"$date":{"$numberLong":"1747267662076"}},
-  "attachments":[],
-  "dailyCalories":{"$numberInt":"1800"},
-  "macroProtein":{"$numberInt":"135"},
-  "macroCarbs":{"$numberInt":"180"},
-  "macroFat":{"$numberInt":"60"},
-  "meals":[
-    {"name":"Kahvaltı","foods":[{"name":"brokoli","amount":"2","calories":{"$numberInt":"90"},"_id":{"$oid":"6825304e5f1e847d629a843e"}},{"name":"yumurta","amount":"3","calories":{"$numberInt":"64"},"_id":{"$oid":"6825304e5f1e847d629a843f"}}],"_id":{"$oid":"6825304e5f1e847d629a843d"}},
-    {"name":"Öğle Yemeği","foods":[{"name":"yumurta","amount":"25","calories":{"$numberInt":"42"},"_id":{"$oid":"6825304e5f1e847d629a8441"}}],"_id":{"$oid":"6825304e5f1e847d629a8440"}},
-    {"name":"Akşam Yemeği","foods":[{"name":"su","amount":"56","calories":{"$numberInt":"11"},"_id":{"$oid":"6825304e5f1e847d629a8443"}}],"_id":{"$oid":"6825304e5f1e847d629a8442"}},
-    {"name":"Ara Öğün","foods":[{"name":"","amount":"","calories":{"$numberInt":"0"},"_id":{"$oid":"6825304e5f1e847d629a8445"}}],"_id":{"$oid":"6825304e5f1e847d629a8444"}}
-  ],
-  "__v":{"$numberInt":"0"}
+// HTML yanıt durumunda kullanılacak varsayılan diyet planı
+const DEFAULT_DIET_PLAN = {
+  _id: null,
+  title: "",
+  description: "",
+  startDate: new Date(),
+  endDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+  status: "active",
+  dailyCalories: 0,
+  macroProtein: 0,
+  macroCarbs: 0,
+  macroFat: 0,
+  meals: [
+    { name: 'Kahvaltı', foods: [] },
+    { name: 'Öğle Yemeği', foods: [] },
+    { name: 'Akşam Yemeği', foods: [] },
+    { name: 'Ara Öğün', foods: [] }
+  ]
+};
+
+// Düzenleme için önbelleğe alınan diyet planları
+export let cachedDietPlans = [];
+
+// Önbelleği güncelleme fonksiyonu
+export const updateDietPlansCache = (plans) => {
+  if (Array.isArray(plans)) {
+    console.log('Diyet planları önbelleğe alınıyor:', plans.length);
+    cachedDietPlans = [...plans];
+  }
+};
+
+// Önbellekten bir planı ID'ye göre bulma
+export const getCachedDietPlan = (planId) => {
+  if (!planId || !cachedDietPlans.length) return null;
+  
+  const plan = cachedDietPlans.find(p => p._id === planId);
+  if (plan) {
+    console.log('Önbellekte plan bulundu:', plan.title);
+  } else {
+    console.log('Plan önbellekte bulunamadı:', planId);
+  }
+  return plan;
 };
 
 /**
@@ -46,13 +62,6 @@ const TEST_DIET_PLAN_DATA = {
  */
 export const apiRequest = async (method, endpoint, data = null, token = null, timeout = API_TIMEOUT, retries = 1) => {
   let currentRetry = 0;
-  
-  // Diyet planı için özel durum kontrolü - acil çözüm
-  if (endpoint.match(/\/diet-plans\/[a-z0-9]+/) && method === 'GET') {
-    console.log('Diyet planı detayı için geçici çözüm kullanılıyor:', endpoint);
-    const planData = processDietPlanData(TEST_DIET_PLAN_DATA);
-    return Promise.resolve(planData);
-  }
   
   const executeRequest = async () => {
     try {
@@ -105,13 +114,18 @@ export const apiRequest = async (method, endpoint, data = null, token = null, ti
           if (textResponse.trim().startsWith('<')) {
             console.error('API HTML yanıt döndü:', textResponse.substring(0, 100) + '...');
             
-            // Acil çözüm - Diyet planı detayları için HTML yanıt alındığında test verisi kullan
+            // HTML yanıt alındığında ve diyet planı detayı isteniyorsa varsayılan plan döndür
             if (endpoint.match(/\/diet-plans\/[a-z0-9]+/) && method === 'GET') {
-              console.log('Diyet planı detayı için test verisi kullanılıyor');
-              return processDietPlanData(TEST_DIET_PLAN_DATA);
+              console.log('HTML yanıt için varsayılan diyet planı kullanılıyor');
+              return { 
+                ...DEFAULT_DIET_PLAN,
+                _id: endpoint.split('/').pop(), // URL'den ID'yi al
+                clientId: data?.clientId || null 
+              };
             }
             
-            return { success: true, message: 'İstek başarılı, ancak HTML yanıt döndü' };
+            // Diğer durumlarda hata döndür
+            return { success: false, message: 'API HTML yanıt döndü' };
           }
           
           // JSON olarak ayrıştırmayı deneyelim
@@ -139,14 +153,25 @@ export const apiRequest = async (method, endpoint, data = null, token = null, ti
             return jsonResponse;
           } catch (jsonError) {
             console.error('JSON ayrıştırma hatası:', jsonError);
-            return { success: true, message: 'İstek başarılı, ancak yanıt JSON olarak ayrıştırılamadı' };
+            
+            // JSON ayrıştırma hatası ve diyet planı detayı
+            if (endpoint.match(/\/diet-plans\/[a-z0-9]+/) && method === 'GET') {
+              console.log('JSON ayrıştırma hatası için varsayılan diyet planı kullanılıyor');
+              return { 
+                ...DEFAULT_DIET_PLAN,
+                _id: endpoint.split('/').pop(),
+                clientId: data?.clientId || null 
+              };
+            }
+            
+            return { success: false, message: 'Yanıt JSON olarak ayrıştırılamadı' };
           }
         } catch (parseError) {
           // JSON ayrıştırma hatası
           if (DEBUG_MODE) {
             console.error('Başarılı yanıt ayrıştırma hatası:', parseError);
           }
-          return { success: true, message: 'İstek başarılı, ancak yanıt ayrıştırılamadı' };
+          return { success: false, message: 'Yanıt ayrıştırılamadı' };
         }
       }
       

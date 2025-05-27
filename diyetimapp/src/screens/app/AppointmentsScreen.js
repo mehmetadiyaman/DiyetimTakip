@@ -54,30 +54,36 @@ const AppointmentsScreen = ({ navigation, route }) => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   
   // Form States
-  const [selectedClient, setSelectedClient] = useState(null);
-  const [clientsMenuVisible, setClientsMenuVisible] = useState(false);
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     date: new Date(),
     duration: '60',
     status: 'scheduled',
     type: 'in-person',
     notes: ''
-  });
+  };
+  const [formData, setFormData] = useState(initialFormData);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [clientsMenuVisible, setClientsMenuVisible] = useState(false);
   
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
   
   // Menu state
   const [menuVisible, setMenuVisible] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [activeAppointmentId, setActiveAppointmentId] = useState(null);
+  const menuButtonRef = useRef(null);
   
-  // Animation refs
+  // Animation refs - daha güvenli değerler
   const slideAnim = useRef(new Animated.Value(height)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
   // Snackbar State
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  // New state
+  const [saving, setSaving] = useState(false);
 
   // Ekran odaklandığında verileri yükle
   useFocusEffect(
@@ -207,7 +213,7 @@ const AppointmentsScreen = ({ navigation, route }) => {
     }
   };
   
-  // Modal animasyonları
+  // Modal animasyonları - basitleştirilmiş
   const showModal = () => {
     Animated.parallel([
       Animated.timing(slideAnim, {
@@ -236,74 +242,86 @@ const AppointmentsScreen = ({ navigation, route }) => {
         useNativeDriver: true
       })
     ]).start(() => {
-      if (callback) callback();
-      else setModalVisible(false);
+      if (callback) {
+        callback();
+      } 
+      else {
+        setModalVisible(false);
+      }
     });
   };
 
-  // Randevu oluştur/düzenle modal işlemleri
-  const handleOpenCreateModal = () => {
-    setFormData({
-      date: new Date(),
-      duration: '60',
-      status: 'scheduled',
-      type: 'in-person',
-      notes: ''
-    });
-    setSelectedClient(null);
-    setIsEditing(false);
-    setModalVisible(true);
-  };
-  
-  const handleOpenEditModal = (appointment) => {
-    setMenuVisible(false);
-    
-    const client = clients.find(c => c._id === appointment.clientId);
-    setSelectedClient(client || null);
-    
-    setFormData({
-      date: new Date(appointment.date),
-      duration: appointment.duration.toString(),
-      status: appointment.status || 'scheduled',
-      type: appointment.type || 'in-person',
-      notes: appointment.notes || ''
-    });
-    
-    setSelectedAppointment(appointment);
-    setIsEditing(true);
-    setModalVisible(true);
-  };
-  
+  // Modal kapatma işlevi - tamamen sadeleştirildi
   const handleCloseModal = () => {
-    hideModal();
+    if (saving) {
+      Alert.alert(
+        'İşlem devam ediyor',
+        'Lütfen kayıt işleminin tamamlanmasını bekleyin.',
+        [{ text: 'Tamam' }]
+      );
+      return;
+    }
+    
+    // Modalı kapat
+    setModalVisible(false);
+    
+    // State'i temizle
+    setTimeout(() => {
+      resetForm();
+    }, 300); // Modal kapandıktan sonra
   };
-  
-  // Form işleyicileri
-  const handleTextChange = (field, value) => {
-    setFormData({
-      ...formData,
-      [field]: value
-    });
+
+  // Modal açma işlevleri
+  const handleOpenCreateModal = () => {
+    resetForm(); // Önce form state'ini temizle
+    setModalVisible(true); // Modalı aç
   };
-  
-  const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
+
+  // Düzenleme modalı - sadeleştirildi
+  const handleOpenEditModal = (appointment) => {
+    try {
+      // Menüyü kapat
+      setMenuVisible(false);
+      
+      // Önce formu sıfırla
+      resetForm();
+      
+      // Düzenleme modunu aktifleştir
+      setIsEditing(true);
+      setSelectedAppointment(appointment);
+      
+      // Danışan ve form bilgilerini ayarla
+      const client = clients.find(c => c._id === appointment.clientId);
+      if (client) {
+        setSelectedClient(client);
+      }
+      
+      // Form verilerini güncelle
       setFormData({
-        ...formData,
-        date: selectedDate
+        date: new Date(appointment.date),
+        duration: appointment.duration.toString(),
+        status: appointment.status || 'scheduled',
+        type: appointment.type || 'in-person',
+        notes: appointment.notes || ''
       });
+      
+      // Modalı aç
+      setModalVisible(true);
+      
+    } catch (error) {
+      console.error("Düzenleme hatası:", error);
+      Alert.alert("Hata", "Randevu düzenlenirken bir sorun oluştu.");
     }
   };
-  
-  // Form gönderimi
+
+  // Form gönderimi - sadeleştirildi
   const handleSubmit = async () => {
     if (!validateForm()) {
       return;
     }
     
     try {
-      setLoading(true);
+      setSaving(true);
       
       const appointmentData = {
         clientId: selectedClient._id,
@@ -340,9 +358,16 @@ const AppointmentsScreen = ({ navigation, route }) => {
         }
       }
       
-      hideModal(() => {
-        loadData();
-      });
+      // Modalı kapat
+      setModalVisible(false);
+      
+      // Verileri yeniden yükle ve formu temizle
+      loadData();
+      
+      setTimeout(() => {
+        resetForm();
+      }, 300);
+      
     } catch (error) {
       console.error('Randevu kaydetme hatası:', error);
       Alert.alert(
@@ -351,28 +376,33 @@ const AppointmentsScreen = ({ navigation, route }) => {
         [{ text: 'Tamam' }]
       );
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
   
   // Form doğrulama
   const validateForm = () => {
+    let isValid = true;
+    let errorMessage = '';
+    
     if (!selectedClient) {
-      Alert.alert('Hata', 'Lütfen bir danışan seçin');
-      return false;
+      isValid = false;
+      errorMessage = 'Lütfen bir danışan seçin';
+    }
+    else if (!formData.date) {
+      isValid = false;
+      errorMessage = 'Lütfen bir tarih seçin';
+    }
+    else if (!formData.duration || parseInt(formData.duration) <= 0) {
+      isValid = false;
+      errorMessage = 'Lütfen geçerli bir süre girin';
     }
     
-    if (!formData.date) {
-      Alert.alert('Hata', 'Lütfen bir tarih seçin');
-      return false;
+    if (!isValid) {
+      Alert.alert('Form Hatası', errorMessage);
     }
     
-    if (!formData.duration || parseInt(formData.duration) <= 0) {
-      Alert.alert('Hata', 'Lütfen geçerli bir süre girin');
-      return false;
-    }
-    
-    return true;
+    return isValid;
   };
 
   // Randevu silme
@@ -380,7 +410,10 @@ const AppointmentsScreen = ({ navigation, route }) => {
     setMenuVisible(false);
     
     try {
-      if (!activeAppointmentId) return;
+      if (!activeAppointmentId) {
+        console.error("Silinecek randevu ID'si bulunamadı");
+        return;
+      }
       
       const confirmed = await new Promise((resolve) => {
         Alert.alert(
@@ -397,15 +430,17 @@ const AppointmentsScreen = ({ navigation, route }) => {
       
       setLoading(true);
       
-      await apiRequest('DELETE', `/appointments/${activeAppointmentId}`, null, token);
+      const response = await apiRequest('DELETE', `/appointments/${activeAppointmentId}`, null, token);
       
-      // Randevuları yeniden yüklemek yerine state'ten kaldır
+      console.log("Silme yanıtı:", response);
+      
       const updatedAppointments = appointments.filter(
         appointment => appointment._id !== activeAppointmentId
       );
       setAppointments(updatedAppointments);
       
       showSnackbar('Randevu başarıyla silindi');
+      setActiveAppointmentId(null);
     } catch (error) {
       console.error('Randevu silme hatası:', error);
       Alert.alert('Hata', 'Randevu silinirken bir sorun oluştu');
@@ -426,313 +461,15 @@ const AppointmentsScreen = ({ navigation, route }) => {
   };
 
   // Randevu menüsünü aç
-  const openAppointmentMenu = (id) => {
+  const openAppointmentMenu = (id, event) => {
+    if (event && event.nativeEvent) {
+      const { pageX, pageY } = event.nativeEvent;
+      setMenuPosition({ x: pageX - 100, y: pageY + 10 });
+    }
+    
     setActiveAppointmentId(id);
     setMenuVisible(true);
   };
-
-  // Form modalı
-  const renderFormModal = () => (
-    <Modal
-      visible={modalVisible}
-      onDismiss={handleCloseModal}
-      contentContainerStyle={styles.modalContainer}
-    >
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-      >
-        <Animated.View 
-          style={[
-            styles.modalContent,
-            {
-              transform: [{ translateY: slideAnim }],
-              opacity: fadeAnim
-            }
-          ]}
-        >
-          <View style={styles.formHeader}>
-            <Ionicons name={isEditing ? "calendar" : "calendar-outline"} size={24} color="#4caf50" style={styles.formHeaderIcon} />
-            <Title style={styles.formTitle}>
-              {isEditing ? 'Randevu Düzenle' : 'Yeni Randevu Ekle'}
-            </Title>
-            <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#757575" />
-            </TouchableOpacity>
-          </View>
-          
-          <Divider style={styles.divider} />
-          
-          <ScrollView contentContainerStyle={styles.modalForm}>
-            {/* Danışan Bilgileri Bölümü */}
-            <View style={styles.formSection}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="person" size={20} color="#4caf50" />
-                <Text style={styles.sectionTitle}>Danışan Bilgileri</Text>
-              </View>
-              
-              <View style={styles.formCard}>
-                {/* Danışan Seçimi */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Danışan <Text style={styles.required}>*</Text></Text>
-                  <TouchableOpacity 
-                    style={styles.clientSelector}
-                    onPress={() => setClientsMenuVisible(true)}
-                  >
-                    {selectedClient && selectedClient.profilePicture ? (
-                      <Image 
-                        source={{ uri: selectedClient.profilePicture }} 
-                        style={styles.selectedClientAvatar} 
-                        defaultSource={require('../../../assets/images/icon.png')}
-                      />
-                    ) : selectedClient ? (
-                      <View style={styles.selectedClientAvatarPlaceholder}>
-                        <Text style={styles.selectedClientInitial}>
-                          {selectedClient.name.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    ) : (
-                      <Ionicons name="person" size={24} color="#bdbdbd" style={styles.clientSelectorIcon} />
-                    )}
-                    
-                    <Text style={selectedClient ? styles.selectedClientText : styles.placeholderText}>
-                      {selectedClient ? selectedClient.name : 'Danışan Seçin'}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#4caf50" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-            
-            {/* Danışan seçme modalı */}
-            <Portal>
-              <Modal
-                visible={clientsMenuVisible}
-                onDismiss={() => setClientsMenuVisible(false)}
-                contentContainerStyle={styles.clientsModalContainer}
-              >
-                <View style={styles.clientsModalContent}>
-                  <View style={styles.clientsModalHeader}>
-                    <Text style={styles.clientsModalTitle}>Danışan Seçin</Text>
-                    <IconButton 
-                      icon="close" 
-                      size={20} 
-                      onPress={() => setClientsMenuVisible(false)} 
-                    />
-                  </View>
-                  <Divider />
-                  <FlatList
-                    data={clients}
-                    keyExtractor={(item) => item._id}
-                    contentContainerStyle={styles.clientsList}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.clientItem}
-                        onPress={() => {
-                          setSelectedClient(item);
-                          setClientsMenuVisible(false);
-                        }}
-                      >
-                        {item.profilePicture ? (
-                          <Image 
-                            source={{ uri: item.profilePicture }} 
-                            style={styles.clientItemAvatar}
-                            defaultSource={require('../../../assets/images/icon.png')} 
-                          />
-                        ) : (
-                          <View style={styles.clientItemAvatarPlaceholder}>
-                            <Text style={styles.clientItemInitial}>
-                              {item.name.charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                        )}
-                        <View style={styles.clientItemInfo}>
-                          <Text style={styles.clientItemName}>{item.name}</Text>
-                          {item.email && <Text style={styles.clientItemEmail}>{item.email}</Text>}
-                        </View>
-                      </TouchableOpacity>
-                    )}
-                    ListEmptyComponent={
-                      <View style={styles.emptyClientsList}>
-                        <Ionicons name="people" size={48} color="#e0e0e0" />
-                        <Text style={styles.emptyClientsText}>Danışan bulunamadı</Text>
-                      </View>
-                    }
-                  />
-                </View>
-              </Modal>
-            </Portal>
-            
-            {/* Randevu Bilgileri Bölümü */}
-            <View style={styles.formSection}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="calendar" size={20} color="#4caf50" />
-                <Text style={styles.sectionTitle}>Randevu Bilgileri</Text>
-              </View>
-              
-              <View style={styles.formCard}>
-                {/* Tarih ve Saat */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Tarih ve Saat <Text style={styles.required}>*</Text></Text>
-                  <TouchableOpacity
-                    style={styles.dateSelector}
-                    onPress={() => setShowDatePicker(true)}
-                  >
-                    <Ionicons name="calendar-outline" size={20} color="#4caf50" style={styles.dateIcon} />
-                    <Text style={styles.dateText}>
-                      {formData.date ? 
-                        `${formatDate(formData.date)} ${formatTime(formData.date)}` : 
-                        'Tarih Seçin'}
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  {showDatePicker && (
-                    <DateTimePicker
-                      value={formData.date || new Date()}
-                      mode="datetime"
-                      display="default"
-                      onChange={handleDateChange}
-                      minimumDate={new Date()}
-                    />
-                  )}
-                </View>
-                
-                {/* Süre */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Süre (Dakika) <Text style={styles.required}>*</Text></Text>
-                  <TextInput
-                    value={formData.duration}
-                    onChangeText={(text) => {
-                      // Sadece sayısal değerlere izin ver
-                      const numericValue = text.replace(/[^0-9]/g, '');
-                      handleTextChange('duration', numericValue);
-                    }}
-                    keyboardType="numeric"
-                    mode="outlined"
-                    placeholder="60"
-                    style={styles.input}
-                    outlineColor="#4caf50"
-                    activeOutlineColor="#2e7d32"
-                    left={<TextInput.Icon icon="clock-outline" color="#4caf50" />}
-                    right={<TextInput.Affix text="dk" />}
-                  />
-                </View>
-              </View>
-            </View>
-            
-            {/* Randevu Detayları Bölümü */}
-            <View style={styles.formSection}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="options" size={20} color="#4caf50" />
-                <Text style={styles.sectionTitle}>Randevu Detayları</Text>
-              </View>
-              
-              <View style={styles.formCard}>
-                {/* Randevu Türü */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Randevu Türü</Text>
-                  <View style={styles.chipGroup}>
-                    <Chip
-                      selected={formData.type === 'in-person'}
-                      onPress={() => handleTextChange('type', 'in-person')}
-                      style={[styles.formChip, formData.type === 'in-person' && styles.selectedChip]}
-                      textStyle={formData.type === 'in-person' ? {color: 'white'} : {}}
-                      icon={() => <Ionicons name="person" size={16} color={formData.type === 'in-person' ? 'white' : '#2E7D32'} />}
-                    >
-                      Yüz Yüze
-                    </Chip>
-                    <Chip
-                      selected={formData.type === 'online'}
-                      onPress={() => handleTextChange('type', 'online')}
-                      style={[styles.formChip, formData.type === 'online' && styles.selectedChipBlue]}
-                      textStyle={formData.type === 'online' ? {color: 'white'} : {}}
-                      icon={() => <Ionicons name="videocam" size={16} color={formData.type === 'online' ? 'white' : '#1565C0'} />}
-                    >
-                      Online
-                    </Chip>
-                  </View>
-                </View>
-                
-                {/* Durum */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Randevu Durumu</Text>
-                  <View style={styles.chipGroup}>
-                    <Chip
-                      selected={formData.status === 'scheduled'}
-                      onPress={() => handleTextChange('status', 'scheduled')}
-                      style={[styles.formChip, formData.status === 'scheduled' && styles.selectedChipBlue]}
-                      textStyle={formData.status === 'scheduled' ? {color: 'white'} : {}}
-                    >
-                      Planlandı
-                    </Chip>
-                    <Chip
-                      selected={formData.status === 'completed'}
-                      onPress={() => handleTextChange('status', 'completed')}
-                      style={[styles.formChip, formData.status === 'completed' && styles.selectedChip]}
-                      textStyle={formData.status === 'completed' ? {color: 'white'} : {}}
-                    >
-                      Tamamlandı
-                    </Chip>
-                    <Chip
-                      selected={formData.status === 'canceled'}
-                      onPress={() => handleTextChange('status', 'canceled')}
-                      style={[styles.formChip, formData.status === 'canceled' && styles.selectedChipRed]}
-                      textStyle={formData.status === 'canceled' ? {color: 'white'} : {}}
-                    >
-                      İptal Edildi
-                    </Chip>
-                  </View>
-                </View>
-                
-                {/* Notlar */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Notlar</Text>
-                  <TextInput
-                    value={formData.notes}
-                    onChangeText={(text) => handleTextChange('notes', text)}
-                    mode="outlined"
-                    placeholder="Randevu hakkında notlar..."
-                    multiline
-                    numberOfLines={3}
-                    style={styles.textArea}
-                    outlineColor="#4caf50"
-                    activeOutlineColor="#2e7d32"
-                    left={<TextInput.Icon icon="note-text" color="#4caf50" />}
-                  />
-                </View>
-              </View>
-            </View>
-            
-            {/* Kaydet & İptal Butonları */}
-            <View style={styles.buttonContainer}>
-              <Button 
-                mode="outlined" 
-                onPress={handleCloseModal}
-                style={styles.buttonCancel}
-                labelStyle={{ color: '#757575' }}
-                icon="close"
-              >
-                İptal
-              </Button>
-              
-              <Button 
-                mode="contained" 
-                onPress={handleSubmit}
-                loading={loading}
-                disabled={loading}
-                style={styles.buttonSave}
-                buttonColor="#4caf50"
-                icon="content-save"
-              >
-                {isEditing ? 'Güncelle' : 'Oluştur'}
-              </Button>
-            </View>
-          </ScrollView>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
 
   // Randevuları listele
   const renderAppointmentItem = ({ item }) => {
@@ -773,7 +510,8 @@ const AppointmentsScreen = ({ navigation, route }) => {
             </View>
             
             <TouchableOpacity
-              onPress={() => openAppointmentMenu(item._id)}
+              ref={menuButtonRef}
+              onPress={(e) => openAppointmentMenu(item._id, e)}
               style={styles.menuButton}
               hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
             >
@@ -846,12 +584,12 @@ const AppointmentsScreen = ({ navigation, route }) => {
             )}
           </View>
           
-          {/* Menü */}
+          {/* Menü - konum güncellenmiş hali */}
           <Portal>
             <Menu
               visible={menuVisible && activeAppointmentId === item._id}
               onDismiss={() => setMenuVisible(false)}
-              anchor={{ x: width - 40, y: 100 }}
+              anchor={menuPosition}
               contentStyle={styles.menuContent}
             >
               <Menu.Item
@@ -889,31 +627,40 @@ const AppointmentsScreen = ({ navigation, route }) => {
     </View>
   );
 
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#4caf50" />
-        <Text style={styles.loadingText}>Randevular yükleniyor...</Text>
-      </View>
-    );
-  }
+  // Form temizleme işlevi
+  const resetForm = () => {
+    setSelectedClient(null);
+    setFormData({...initialFormData});
+    setSelectedAppointment(null);
+    setIsEditing(false);
+  };
 
-  if (error) {
-    return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="alert-circle" size={60} color="#f44336" />
-        <Text style={styles.errorText}>{error}</Text>
-        <Button 
-          mode="contained" 
-          onPress={loadData} 
-          style={{ marginTop: 16 }}
-          buttonColor="#4caf50"
-        >
-          Tekrar Dene
-        </Button>
-      </View>
-    );
-  }
+  // Form işleyicileri
+  const handleTextChange = (field, value) => {
+    setFormData({
+      ...formData,
+      [field]: value
+    });
+  };
+
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    
+    if (selectedDate) {
+      // Tarih seçildiğinde saati koruyalım
+      const newDate = new Date(selectedDate);
+      const currentTime = formData.date;
+      
+      // Seçilen tarihe mevcut saati ata
+      newDate.setHours(
+        currentTime.getHours(),
+        currentTime.getMinutes(),
+        currentTime.getSeconds()
+      );
+      
+      setFormData({...formData, date: newDate});
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -928,7 +675,303 @@ const AppointmentsScreen = ({ navigation, route }) => {
         ListEmptyComponent={renderEmptyList}
       />
       
-      {renderFormModal()}
+      {/* Portal ve Modal kullanımı düzenlendi */}
+      <Portal>
+        <Modal
+          visible={modalVisible}
+          onDismiss={handleCloseModal}
+          contentContainerStyle={styles.modalContainer}
+        >
+          <View style={styles.modalContent}>
+            {/* Modal başlık */}
+            <View style={styles.modalHandle}></View>
+            <View style={styles.formHeader}>
+              <Ionicons name={isEditing ? "calendar" : "calendar-outline"} size={24} color="#4caf50" style={styles.formHeaderIcon} />
+              <Title style={styles.formTitle}>
+                {isEditing ? 'Randevu Düzenle' : 'Yeni Randevu Ekle'}
+              </Title>
+              <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#757575" />
+              </TouchableOpacity>
+            </View>
+            
+            <Divider style={styles.divider} />
+            
+            {/* Form içeriği */}
+            <KeyboardAvoidingView
+              style={{flex: 1}}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+            >
+              <ScrollView contentContainerStyle={styles.modalForm}>
+                {/* Danışan Bilgileri Bölümü */}
+                <View style={styles.formSection}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="person" size={20} color="#4caf50" />
+                    <Text style={styles.sectionTitle}>Danışan Bilgileri</Text>
+                  </View>
+                  
+                  <View style={styles.formCard}>
+                    {/* Danışan Seçimi */}
+                    <View style={styles.formGroup}>
+                      <Text style={styles.label}>Danışan <Text style={styles.required}>*</Text></Text>
+                      <TouchableOpacity 
+                        style={styles.clientSelector}
+                        onPress={() => setClientsMenuVisible(true)}
+                      >
+                        {selectedClient && selectedClient.profilePicture ? (
+                          <Image 
+                            source={{ uri: selectedClient.profilePicture }} 
+                            style={styles.selectedClientAvatar} 
+                            defaultSource={require('../../../assets/images/icon.png')}
+                          />
+                        ) : selectedClient ? (
+                          <View style={styles.selectedClientAvatarPlaceholder}>
+                            <Text style={styles.selectedClientInitial}>
+                              {selectedClient.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Ionicons name="person" size={24} color="#bdbdbd" style={styles.clientSelectorIcon} />
+                        )}
+                        
+                        <Text style={selectedClient ? styles.selectedClientText : styles.placeholderText}>
+                          {selectedClient ? selectedClient.name : 'Danışan Seçin'}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color="#4caf50" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+                
+                {/* Randevu Bilgileri Bölümü */}
+                <View style={styles.formSection}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="calendar" size={20} color="#4caf50" />
+                    <Text style={styles.sectionTitle}>Randevu Bilgileri</Text>
+                  </View>
+                  
+                  <View style={styles.formCard}>
+                    {/* Tarih ve Saat */}
+                    <View style={styles.formGroup}>
+                      <Text style={styles.label}>Tarih ve Saat <Text style={styles.required}>*</Text></Text>
+                      <TouchableOpacity
+                        style={styles.dateSelector}
+                        onPress={() => setShowDatePicker(true)}
+                      >
+                        <Ionicons name="calendar-outline" size={20} color="#4caf50" style={styles.dateIcon} />
+                        <Text style={styles.dateText}>
+                          {formData.date ? 
+                            `${formatDate(formData.date)} ${formatTime(formData.date)}` : 
+                            'Tarih Seçin'}
+                        </Text>
+                      </TouchableOpacity>
+                      
+                      {showDatePicker && (
+                        <DateTimePicker
+                          value={formData.date || new Date()}
+                          mode="datetime"
+                          display="default"
+                          onChange={handleDateChange}
+                          minimumDate={new Date()}
+                        />
+                      )}
+                    </View>
+                    
+                    {/* Süre */}
+                    <View style={styles.formGroup}>
+                      <Text style={styles.label}>Süre (Dakika) <Text style={styles.required}>*</Text></Text>
+                      <TextInput
+                        value={formData.duration}
+                        onChangeText={(text) => {
+                          // Sadece sayısal değerlere izin ver
+                          const numericValue = text.replace(/[^0-9]/g, '');
+                          handleTextChange('duration', numericValue);
+                        }}
+                        keyboardType="numeric"
+                        mode="outlined"
+                        placeholder="60"
+                        style={styles.input}
+                        outlineColor="#4caf50"
+                        activeOutlineColor="#2e7d32"
+                        left={<TextInput.Icon icon="clock-outline" color="#4caf50" />}
+                        right={<TextInput.Affix text="dk" />}
+                      />
+                    </View>
+                  </View>
+                </View>
+                
+                {/* Randevu Detayları Bölümü */}
+                <View style={styles.formSection}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="options" size={20} color="#4caf50" />
+                    <Text style={styles.sectionTitle}>Randevu Detayları</Text>
+                  </View>
+                  
+                  <View style={styles.formCard}>
+                    {/* Randevu Türü */}
+                    <View style={styles.formGroup}>
+                      <Text style={styles.label}>Randevu Türü</Text>
+                      <View style={styles.chipGroup}>
+                        <Chip
+                          selected={formData.type === 'in-person'}
+                          onPress={() => handleTextChange('type', 'in-person')}
+                          style={[styles.formChip, formData.type === 'in-person' && styles.selectedChip]}
+                          textStyle={formData.type === 'in-person' ? {color: 'white'} : {}}
+                          icon={() => <Ionicons name="person" size={16} color={formData.type === 'in-person' ? 'white' : '#2E7D32'} />}
+                        >
+                          Yüz Yüze
+                        </Chip>
+                        <Chip
+                          selected={formData.type === 'online'}
+                          onPress={() => handleTextChange('type', 'online')}
+                          style={[styles.formChip, formData.type === 'online' && styles.selectedChipBlue]}
+                          textStyle={formData.type === 'online' ? {color: 'white'} : {}}
+                          icon={() => <Ionicons name="videocam" size={16} color={formData.type === 'online' ? 'white' : '#1565C0'} />}
+                        >
+                          Online
+                        </Chip>
+                      </View>
+                    </View>
+                    
+                    {/* Durum */}
+                    <View style={styles.formGroup}>
+                      <Text style={styles.label}>Randevu Durumu</Text>
+                      <View style={styles.chipGroup}>
+                        <Chip
+                          selected={formData.status === 'scheduled'}
+                          onPress={() => handleTextChange('status', 'scheduled')}
+                          style={[styles.formChip, formData.status === 'scheduled' && styles.selectedChipBlue]}
+                          textStyle={formData.status === 'scheduled' ? {color: 'white'} : {}}
+                        >
+                          Planlandı
+                        </Chip>
+                        <Chip
+                          selected={formData.status === 'completed'}
+                          onPress={() => handleTextChange('status', 'completed')}
+                          style={[styles.formChip, formData.status === 'completed' && styles.selectedChip]}
+                          textStyle={formData.status === 'completed' ? {color: 'white'} : {}}
+                        >
+                          Tamamlandı
+                        </Chip>
+                        <Chip
+                          selected={formData.status === 'canceled'}
+                          onPress={() => handleTextChange('status', 'canceled')}
+                          style={[styles.formChip, formData.status === 'canceled' && styles.selectedChipRed]}
+                          textStyle={formData.status === 'canceled' ? {color: 'white'} : {}}
+                        >
+                          İptal Edildi
+                        </Chip>
+                      </View>
+                    </View>
+                    
+                    {/* Notlar */}
+                    <View style={styles.formGroup}>
+                      <Text style={styles.label}>Notlar</Text>
+                      <TextInput
+                        value={formData.notes}
+                        onChangeText={(text) => handleTextChange('notes', text)}
+                        mode="outlined"
+                        placeholder="Randevu hakkında notlar..."
+                        multiline
+                        numberOfLines={3}
+                        style={styles.textArea}
+                        outlineColor="#4caf50"
+                        activeOutlineColor="#2e7d32"
+                        left={<TextInput.Icon icon="note-text" color="#4caf50" />}
+                      />
+                    </View>
+                  </View>
+                </View>
+                
+                {/* Kaydet & İptal Butonları */}
+                <View style={styles.buttonContainer}>
+                  <Button 
+                    mode="outlined" 
+                    onPress={handleCloseModal}
+                    style={styles.buttonCancel}
+                    labelStyle={{ color: '#757575' }}
+                    icon="close"
+                  >
+                    İptal
+                  </Button>
+                  
+                  <Button 
+                    mode="contained" 
+                    onPress={handleSubmit}
+                    loading={saving}
+                    disabled={saving}
+                    style={styles.buttonSave}
+                    buttonColor="#4caf50"
+                    icon="content-save"
+                  >
+                    {isEditing ? 'Güncelle' : 'Oluştur'}
+                  </Button>
+                </View>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
+      </Portal>
+      
+      {/* Danışan seçme modalı */}
+      <Portal>
+        <Modal
+          visible={clientsMenuVisible}
+          onDismiss={() => setClientsMenuVisible(false)}
+          contentContainerStyle={styles.clientsModalContainer}
+        >
+          <View style={styles.clientsModalContent}>
+            <View style={styles.clientsModalHeader}>
+              <Text style={styles.clientsModalTitle}>Danışan Seçin</Text>
+              <IconButton 
+                icon="close" 
+                size={20} 
+                onPress={() => setClientsMenuVisible(false)} 
+              />
+            </View>
+            <Divider />
+            <FlatList
+              data={clients}
+              keyExtractor={(item) => item._id}
+              contentContainerStyle={styles.clientsList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.clientItem}
+                  onPress={() => {
+                    setSelectedClient(item);
+                    setClientsMenuVisible(false);
+                  }}
+                >
+                  {item.profilePicture ? (
+                    <Image 
+                      source={{ uri: item.profilePicture }} 
+                      style={styles.clientItemAvatar}
+                      defaultSource={require('../../../assets/images/icon.png')} 
+                    />
+                  ) : (
+                    <View style={styles.clientItemAvatarPlaceholder}>
+                      <Text style={styles.clientItemInitial}>
+                        {item.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.clientItemInfo}>
+                    <Text style={styles.clientItemName}>{item.name}</Text>
+                    {item.email && <Text style={styles.clientItemEmail}>{item.email}</Text>}
+                  </View>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptyClientsList}>
+                  <Ionicons name="people" size={48} color="#e0e0e0" />
+                  <Text style={styles.emptyClientsText}>Danışan bulunamadı</Text>
+                </View>
+              }
+            />
+          </View>
+        </Modal>
+      </Portal>
       
       {/* Snackbar */}
       {snackbarVisible && (
@@ -1216,11 +1259,20 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 10,
   },
+  modalHandle: {
+    width: 40,
+    height: 5,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 5,
+  },
   formHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 15,
   },
   formHeaderIcon: {
     marginRight: 12,

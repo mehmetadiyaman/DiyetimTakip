@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -12,7 +12,8 @@ import {
   StatusBar,
   Platform,
   ImageBackground,
-  Alert
+  Alert,
+  Animated
 } from 'react-native';
 import { Card, Title, Paragraph, Avatar, Badge, FAB, ProgressBar, Divider, Button } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons, AntDesign, FontAwesome5 } from '@expo/vector-icons';
@@ -20,11 +21,110 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../hooks/useAuth';
 import { apiRequest } from '../../api/config';
 import theme from '../../themes/theme';
-import { PieChart, LineChart } from 'react-native-chart-kit';
 import moment from 'moment';
 import 'moment/locale/tr';  // Türkçe dil desteği
 
 const { width, height } = Dimensions.get('window');
+
+// Motivasyon sözleri dizisi
+const HEALTH_QUOTES = [
+  {
+    quote: "Sağlığınız en değerli servetinizdir. Onu yönetmek için zaman ayırmak, en iyi yatırımdır.",
+    author: "Anonim"
+  },
+  {
+    quote: "Bedeniniz bir tapınak gibidir. Onu temiz tutun, besleyin ve saygı gösterin.",
+    author: "B.K.S. Iyengar"
+  },
+  {
+    quote: "Her gün yaptığınız küçük seçimler bir araya geldiğinde büyük bir yaşam değişikliği olur.",
+    author: "Robert Collier"
+  },
+  {
+    quote: "İlaç yiyeceğiniz olsun, yiyecekleriniz de ilacınız.",
+    author: "Hipokrat"
+  },
+  {
+    quote: "Mutluluğun ilk şartı sağlıklı bir bedendir.",
+    author: "Thomas Jefferson"
+  },
+  {
+    quote: "Sağlığı korumak, hastalığı tedavi etmekten daha kolaydır.",
+    author: "Dr. Michael Greger"
+  },
+  {
+    quote: "Hareketsizlik bedeni yavaş yavaş çürütür, hareket ise hayat verir.",
+    author: "Aristo"
+  }
+];
+
+// Sağlık ipuçları dizisi
+const HEALTH_TIPS = [
+  {
+    tip: "Günde en az 5 porsiyon sebze ve meyve tüketin",
+    icon: "food-apple",
+    color: "#43B692"
+  },
+  {
+    tip: "Günlük D vitamini için 15-20 dk güneşlenin",
+    icon: "white-balance-sunny",
+    color: "#FF9800"
+  },
+  {
+    tip: "Günde en az 8 bardak su için",
+    icon: "water",
+    color: "#2196F3"
+  },
+  {
+    tip: "Haftada en az 150 dakika orta şiddetli egzersiz yapın",
+    icon: "run",
+    color: "#F44336"
+  },
+  {
+    tip: "Uyku kalitenizi artırmak için düzenli uyku saatleri belirleyin",
+    icon: "sleep",
+    color: "#673AB7"
+  },
+  {
+    tip: "İşlenmiş şekeri azaltarak metabolizmanızı koruyun",
+    icon: "cube-outline",
+    color: "#795548"
+  }
+];
+
+// Günlük egzersiz önerileri
+const DAILY_EXERCISES = [
+  {
+    name: "Sabah Yürüyüşü",
+    duration: "20 dk",
+    description: "Güne enerjik başlamak için sabah yürüyüşü",
+    icon: "walk",
+  },
+  {
+    name: "Masa Başı Egzersizleri",
+    duration: "5 dk",
+    description: "Ofiste veya evde çalışırken yapabileceğiniz kısa esnemeler",
+    icon: "desk-chair",
+  },
+  {
+    name: "Akşam Yoga",
+    duration: "15 dk",
+    description: "Günün stresini atmak için rahatlatıcı yoga hareketleri",
+    icon: "meditation",
+  },
+  {
+    name: "HIIT Antrenman",
+    duration: "10 dk",
+    description: "Metabolizmayı hızlandıran yüksek yoğunluklu interval egzersizler",
+    icon: "lightning-bolt",
+  },
+  {
+    name: "Temel Güçlendirme",
+    duration: "10 dk",
+    description: "Karın, sırt ve kalça kaslarını güçlendiren temel hareketler",
+    icon: "human-handsup",
+  }
+];
 
 const DashboardScreen = ({ navigation }) => {
   const { user, token } = useAuth();
@@ -45,6 +145,12 @@ const DashboardScreen = ({ navigation }) => {
     }
   });
   const [error, setError] = useState(null);
+  
+  // Rastgele motivasyon sözü ve ipuçları için state
+  const [randomQuote, setRandomQuote] = useState(HEALTH_QUOTES[0]);
+  const [healthTips, setHealthTips] = useState(HEALTH_TIPS.slice(0, 3));
+  const quoteAnimation = useRef(new Animated.Value(1)).current; // Başlangıçta görünür (1)
+  const [dailyExercise, setDailyExercise] = useState(DAILY_EXERCISES[0]); // Artık kullanılmıyor
 
   const loadDashboardData = async () => {
     try {
@@ -216,50 +322,6 @@ const DashboardScreen = ({ navigation }) => {
       .slice(0, 5);
   };
 
-  // Ağırlık takip verilerini hazırla
-  const generateWeightData = () => {
-    // Ölçümleri tarihe göre sıralayalım
-    const sortedMeasurements = [...dashboardData.measurements]
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-      
-    // Son 7 kayıt veya daha az
-    const recentMeasurements = sortedMeasurements.slice(-7);
-    
-    // Eğer ölçüm yoksa veya yetersizse varsayılan değerler döndür
-    if (recentMeasurements.length === 0) {
-      return {
-        labels: ["Hafta 1", "Hafta 2", "Hafta 3", "Hafta 4", "Hafta 5", "Hafta 6", "Hafta 7"],
-        datasets: [
-          {
-            data: [70, 69.5, 69, 68.7, 68.2, 68, 67.5],
-            color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
-            strokeWidth: 2
-          }
-        ]
-      };
-    }
-    
-    // Ölçümleri data olarak hazırla
-    const data = recentMeasurements.map(m => m.weight || 0);
-    
-    // Etiketleri hazırla
-    const labels = recentMeasurements.map(m => {
-      const date = new Date(m.date);
-      return `${date.getDate()}/${date.getMonth() + 1}`;
-    });
-    
-    return {
-      labels,
-      datasets: [
-        {
-          data,
-          color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
-          strokeWidth: 2
-        }
-      ]
-    };
-  };
-
   // Aktivite verilerini çek
   const fetchActivities = async () => {
     try {
@@ -294,6 +356,47 @@ const DashboardScreen = ({ navigation }) => {
       return [];
     }
   };
+
+  // Rastgele motivasyon sözü seçme fonksiyonu
+  const selectRandomQuote = () => {
+    const randomIndex = Math.floor(Math.random() * HEALTH_QUOTES.length);
+    // Önce quote'u set et, animasyon problemi olmasın
+    setRandomQuote(HEALTH_QUOTES[randomIndex]);
+    
+    // Daha güvenilir animasyon sekansı
+    Animated.timing(quoteAnimation, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true
+    }).start(() => {
+      setTimeout(() => {
+        Animated.timing(quoteAnimation, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true
+        }).start();
+      }, 100);
+    });
+  };
+  
+  // Rastgele ipuçları seçme
+  const selectRandomTips = () => {
+    const shuffled = [...HEALTH_TIPS].sort(() => 0.5 - Math.random());
+    setHealthTips(shuffled.slice(0, 3));
+  };
+  
+  // Günlük egzersiz önerisi seçme fonksiyonu
+  const selectDailyExercise = () => {
+    const randomIndex = Math.floor(Math.random() * DAILY_EXERCISES.length);
+    setDailyExercise(DAILY_EXERCISES[randomIndex]);
+  };
+  
+  // Komponentin ilk yüklenmesinde rastgele bir söz seç
+  useEffect(() => {
+    selectRandomQuote();
+    selectRandomTips();
+    // selectDailyExercise(); // Artık kullanılmıyor
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
@@ -353,422 +456,372 @@ const DashboardScreen = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.palette.primary.main]} />
         }
       >
-        {/* Modern Header */}
-        <View style={styles.modernHeader}>
-          <View style={styles.dateSection}>
-            <View style={styles.calendarIcon}>
-              <MaterialCommunityIcons name="calendar-month" size={18} color={theme.palette.primary.main} />
-            </View>
-            <Text style={styles.modernDateText}>
-              {moment().format('DD MMMM YYYY, dddd')}
+        {/* Minimalist Header */}
+        <View style={styles.minimalistHeader}>
+          <View style={styles.minimalistUserInfo}>
+            {user?.profilePicture ? (
+              <Image 
+                source={{uri: user.profilePicture}} 
+                style={styles.minimalistAvatar} 
+                defaultSource={require('../../../assets/images/icon.png')}
+              />
+            ) : (
+              <View style={styles.minimalistAvatarPlaceholder}>
+                <Text style={styles.minimalistAvatarText}>
+                  {user?.name ? user.name.charAt(0).toUpperCase() : 'D'}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.minimalistUserName}>
+              {user?.name || 'Kullanıcı'}
             </Text>
           </View>
           
-          <View style={styles.userSection}>
-            <View style={styles.greetingContainer}>
-              <Text style={styles.nameText}>{user?.name || 'Kullanıcı'}</Text>
-              <MaterialCommunityIcons 
-                name="hand-wave" 
-                size={20} 
-                color="#FFC107" 
-                style={styles.waveIcon} 
-              />
-            </View>
-            
-            <Avatar.Image 
-              size={42} 
-              source={user?.profilePicture ? {uri: user.profilePicture} : require('../../../assets/images/icon.png')} 
-              style={styles.modernUserAvatar}
-            />
-          </View>
+          <Text style={styles.minimalistDate}>
+            {moment().format('DD MMM, ddd')}
+          </Text>
         </View>
-
-        {/* Özet İstatistikler */}
-        <View style={styles.summaryContainer}>
-          <View style={styles.statsRow}>
-            <TouchableOpacity style={[styles.statBox, { backgroundColor: '#F5F7FA' }]} activeOpacity={0.8}>
-              <View style={[styles.statIcon, {backgroundColor: '#E8F5E9'}]}>
-                <MaterialCommunityIcons name="account-group" size={22} color="#4CAF50" />
-              </View>
-              <Text style={styles.statValue}>{dashboardData.statistics.activeClients}</Text>
-              <Text style={styles.statLabel}>Aktif Danışan</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={[styles.statBox, { backgroundColor: '#F5F7FA' }]} activeOpacity={0.8}>
-              <View style={[styles.statIcon, {backgroundColor: '#E3F2FD'}]}>
-                <MaterialCommunityIcons name="calendar-check" size={22} color="#2196F3" />
-              </View>
-              <Text style={styles.statValue}>{todayAppointments.length}</Text>
-              <Text style={styles.statLabel}>Bugünkü Randevular</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={[styles.statBox, { backgroundColor: '#F5F7FA' }]} activeOpacity={0.8}>
-              <View style={[styles.statIcon, {backgroundColor: '#FFF3E0'}]}>
-                <MaterialCommunityIcons name="clipboard-text-clock" size={22} color="#FF9800" />
-              </View>
-              <Text style={styles.statValue}>{upcomingAppointments.length}</Text>
-              <Text style={styles.statLabel}>Yaklaşan Randevular</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
+        
         {/* Ana İçerik Kartları */}
         <View style={styles.cardsContainer}>
-          {/* Danışan İstatistikleri Kartı */}
-          <Card style={styles.card}>
-            <Card.Content>
+          {/* Sağlıklı Yaşam Rehberi Kartı */}
+          <Card style={[styles.card, styles.healthCard]}>
+            <View style={styles.patternOverlay} />
+            <Card.Content style={{position: 'relative', zIndex: 1}}>
               <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="account-group" size={22} color={theme.palette.primary.main} />
-                <Title style={styles.cardTitle}>Danışan İstatistikleri</Title>
+                <MaterialCommunityIcons name="heart-pulse" size={22} color="#E91E63" />
+                <Title style={[styles.cardTitle, {color: '#E91E63'}]}>Sağlıklı Yaşam Rehberi</Title>
               </View>
               
-              <View style={styles.cardChartContainer}>
-                {dashboardData.statistics.totalClients > 0 ? (
-                  <PieChart
-                    data={pieChartData}
-                    width={width - 80}
-                    height={180}
-                    chartConfig={{
-                      color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                    }}
-                    accessor={"population"}
-                    backgroundColor={"transparent"}
-                    paddingLeft={"10"}
-                    center={[0, 0]}
-                    absolute
+              <TouchableOpacity 
+                activeOpacity={0.9} 
+                onPress={selectRandomQuote}
+                style={{overflow: 'hidden'}}
+              >
+                <LinearGradient
+                  colors={['#E91E63', '#FF5722']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.healthCardGradient}
+                >
+                  <Image 
+                    source={require('../../../assets/images/icon.png')} 
+                    style={styles.healthCardBackgroundImage} 
+                    blurRadius={10}
                   />
-                ) : (
-                  <View style={styles.emptyChartContainer}>
-                    <MaterialCommunityIcons name="chart-pie" size={50} color="#BDBDBD" />
-                    <Text style={styles.emptyStateText}>Henüz danışan kaydı yok</Text>
+                  <View style={styles.healthCardContent}>
+                    <View style={styles.healthCardIconContainer}>
+                      <MaterialCommunityIcons name="meditation" size={60} color="#fff" />
+                    </View>
+                    <View style={styles.healthCardTextContent}>
+                      <Text style={styles.healthCardTitle}>Günün Sözü</Text>
+                      <Animated.Text 
+                        style={[
+                          styles.healthCardQuote, 
+                          {opacity: quoteAnimation}
+                        ]}
+                      >
+                        "{randomQuote?.quote || "Sağlığınız en değerli servetinizdir. Onu yönetmek için zaman ayırmak, en iyi yatırımdır."}"
+                      </Animated.Text>
+                      <Text style={styles.healthCardAuthor}>— {randomQuote?.author || "Anonim"}</Text>
+                    </View>
                   </View>
-                )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <View style={styles.healthTipsContainer}>
+                <View style={styles.tipsHeader}>
+                  <MaterialCommunityIcons name="lightbulb-outline" size={18} color="#E91E63" />
+                  <Text style={styles.tipsHeaderTitle}>Sağlık İpuçları</Text>
+                </View>
+                {healthTips.map((tip, index) => (
+                  <View key={index} style={styles.healthTipItem}>
+                    <View style={[styles.healthTipIconContainer, {shadowColor: tip.color}]}>
+                      <MaterialCommunityIcons name={tip.icon} size={24} color={tip.color} />
+                    </View>
+                    <Text style={styles.healthTipText}>{tip.tip}</Text>
+                  </View>
+                ))}
               </View>
-
-              <View style={styles.statsSummaryContainer}>
-                <View style={styles.statsSummaryItem}>
-                  <Text style={styles.statsSummaryLabel}>Toplam Danışan</Text>
-                  <Text style={styles.statsSummaryValue}>{dashboardData.statistics.totalClients}</Text>
-                </View>
-
-                <View style={styles.statsSummaryItem}>
-                  <Text style={styles.statsSummaryLabel}>Tamamlanan Randevular</Text>
-                  <Text style={styles.statsSummaryValue}>{dashboardData.statistics.completedAppointments}</Text>
-                </View>
-
-                <View style={styles.statsSummaryItem}>
-                  <Text style={styles.statsSummaryLabel}>Aktif Diyet Planları</Text>
-                  <Text style={styles.statsSummaryValue}>{dashboardData.statistics.activeClients}</Text>
-                </View>
-              </View>
+              
+              <TouchableOpacity 
+                style={styles.healthCardButton}
+                onPress={selectRandomTips}
+              >
+                <Text style={styles.healthCardButtonText}>Yeni İpuçları Göster</Text>
+                <MaterialCommunityIcons name="refresh" size={18} color="#E91E63" />
+              </TouchableOpacity>
             </Card.Content>
           </Card>
 
-          {/* İlerleme Takibi Kartı */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="chart-line" size={22} color={theme.palette.primary.main} />
-                <Title style={styles.cardTitle}>İlerleme Takibi</Title>
+          {/* Yaklaşan Randevular Kartı - Geliştirilmiş Tasarım */}
+          <Card style={[styles.card, styles.appointmentsCard]}>
+            <LinearGradient
+              colors={['#2196F3', '#03A9F4']}
+              start={{x: 0, y: 0}}
+              end={{x: 0, y: 0.1}}
+              style={styles.appointmentsCardHeader}
+            >
+              <View style={styles.appointmentsHeaderContent}>
+                <MaterialCommunityIcons name="calendar-clock" size={26} color="#fff" />
+                <Title style={styles.appointmentsHeaderTitle}>Yaklaşan Randevular</Title>
               </View>
-              
-              <View style={styles.cardChartContainer}>
-                {dashboardData.measurements.length > 0 ? (
-                  <LineChart
-                    data={generateWeightData()}
-                    width={width - 80}
-                    height={180}
-                    yAxisSuffix=" kg"
-                    chartConfig={{
-                      backgroundColor: "#fff",
-                      backgroundGradientFrom: "#fff",
-                      backgroundGradientTo: "#fff",
-                      decimalPlaces: 1,
-                      color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
-                      labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                      propsForDots: {
-                        r: "5",
-                        strokeWidth: "2",
-                        stroke: "#4CAF50"
-                      }
-                    }}
-                    bezier
-                    style={{
-                      marginVertical: 8,
-                      borderRadius: 16
-                    }}
-                  />
-                ) : (
-                  <View style={styles.emptyChartContainer}>
-                    <MaterialCommunityIcons name="chart-line" size={50} color="#BDBDBD" />
-                    <Text style={styles.emptyStateText}>Henüz ölçüm verisi yok</Text>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.progressContainer}>
-                <View style={styles.progressItem}>
-                  <View style={styles.progressLabelContainer}>
-                    <Text style={styles.progressLabel}>Hedef Ağırlık İlerleme</Text>
-                    <Text style={styles.progressValue}>
-                      %{dashboardData.statistics.weightProgress}
-                    </Text>
-                  </View>
-                  <ProgressBar 
-                    progress={dashboardData.statistics.weightProgress / 100}
-                    color="#4CAF50"
-                    style={styles.progressBar}
-                  />
-                </View>
-
-                <View style={styles.progressItem}>
-                  <View style={styles.progressLabelContainer}>
-                    <Text style={styles.progressLabel}>Su Tüketimi</Text>
-                    <Text style={styles.progressValue}>
-                      %{dashboardData.statistics.waterConsumption}
-                    </Text>
-                  </View>
-                  <ProgressBar 
-                    progress={dashboardData.statistics.waterConsumption / 100}
-                    color="#2196F3"
-                    style={styles.progressBar}
-                  />
-                </View>
-              </View>
-            </Card.Content>
-          </Card>
-
-          {/* Yaklaşan Randevular Kartı */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="calendar-clock" size={22} color={theme.palette.primary.main} />
-                <Title style={styles.cardTitle}>Yaklaşan Randevular</Title>
-              </View>
-              
+            </LinearGradient>
+            
+            <Card.Content style={styles.appointmentsCardContent}>
               {upcomingAppointments.length > 0 ? (
                 upcomingAppointments.map((appointment, index) => {
                   const client = dashboardData.clients.find(c => c._id === appointment.clientId);
+                  const appointmentDate = new Date(appointment.date);
+                  const isToday = new Date(appointmentDate).setHours(0,0,0,0) === new Date().setHours(0,0,0,0);
+                  const isTomorrow = new Date(appointmentDate).setHours(0,0,0,0) === new Date(new Date().setDate(new Date().getDate() + 1)).setHours(0,0,0,0);
+                  
+                  // Randevu notları için kontrol
+                  const hasNotes = appointment.notes && appointment.notes.trim().length > 0;
                   
                   return (
                     <View key={appointment._id || index}>
-                      <View style={styles.appointmentItem}>
-                        <View style={styles.appointmentTimeContainer}>
-                          <Text style={styles.appointmentDate}>{formatDate(appointment.date)}</Text>
-                          <Text style={styles.appointmentTime}>{formatTime(appointment.date)}</Text>
+                      <View style={styles.modernAppointmentItem}>
+                        <View style={styles.modernAppDateSection}>
+                          <View style={[styles.modernAppDateBox, isToday ? styles.todayDateBox : isTomorrow ? styles.tomorrowDateBox : null]}>
+                            <Text style={styles.modernAppDateDay}>{appointmentDate.getDate()}</Text>
+                            <Text style={styles.modernAppDateMonth}>
+                              {appointmentDate.toLocaleString('tr-TR', {month: 'short'})}
+                            </Text>
+                          </View>
+                          <Text style={styles.modernAppTime}>
+                            {appointmentDate.toLocaleString('tr-TR', {hour: '2-digit', minute: '2-digit'})}
+                          </Text>
                         </View>
                         
-                        <View style={styles.appointmentDivider} />
-                        
-                        <View style={styles.appointmentDetails}>
-                          <Text style={styles.appointmentClient}>{client?.name || 'İsimsiz Danışan'}</Text>
-                          <Text style={styles.appointmentNote}>{appointment.note || 'Not eklenmedi'}</Text>
+                        <View style={styles.modernAppContent}>
+                          <View style={styles.modernAppClientRow}>
+                            {client?.profilePicture ? (
+                              <Image 
+                                source={{uri: client.profilePicture}} 
+                                style={styles.modernAppClientAvatar} 
+                                defaultSource={require('../../../assets/images/icon.png')} 
+                              />
+                            ) : (
+                              <View style={styles.modernAppClientAvatarDefault}>
+                                <Text style={styles.modernAppClientInitial}>
+                                  {(client?.name || 'A')[0].toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                            <View style={styles.modernAppClientInfo}>
+                              <Text style={styles.modernAppClientName}>
+                                {client?.name || 'İsimsiz Danışan'}
+                              </Text>
+                              <View style={styles.modernAppTypeRow}>
+                                <MaterialCommunityIcons 
+                                  name={appointment.type === 'online' ? 'video' : 'account'}
+                                  size={14}
+                                  color={appointment.type === 'online' ? '#1976D2' : '#43A047'} 
+                                />
+                                <Text style={[
+                                  styles.modernAppType,
+                                  {color: appointment.type === 'online' ? '#1976D2' : '#43A047'}
+                                ]}>
+                                  {appointment.type === 'online' ? 'Online' : 'Yüz Yüze'}
+                                </Text>
+                                <View style={[
+                                  styles.modernAppDuration,
+                                  {backgroundColor: appointment.type === 'online' ? '#E3F2FD' : '#E8F5E9'}
+                                ]}>
+                                  <MaterialCommunityIcons name="clock-outline" size={12} color="#757575" />
+                                  <Text style={styles.modernAppDurationText}>{appointment.duration} dk</Text>
+                                </View>
+                              </View>
+                            </View>
+                            
+                            <View style={[
+                              styles.modernAppStatusBadge,
+                              appointment.status === 'completed' ? styles.modernStatusCompleted : 
+                              appointment.status === 'canceled' ? styles.modernStatusCanceled : 
+                              styles.modernStatusScheduled
+                            ]}>
+                              <Text style={styles.modernAppStatusText}>
+                                {appointment.status === 'completed' ? 'Tamamlandı' : 
+                                appointment.status === 'canceled' ? 'İptal' : 
+                                'Planlandı'}
+                              </Text>
+                            </View>
+                          </View>
                           
-                          <Badge style={[styles.appointmentStatus, 
-                            appointment.status === 'completed' ? styles.statusCompleted : 
-                            appointment.status === 'canceled' ? styles.statusCanceled : 
-                            styles.statusScheduled
-                          ]}>
-                            {appointment.status === 'completed' ? 'Tamamlandı' : 
-                            appointment.status === 'canceled' ? 'İptal' : 
-                            'Planlandı'}
-                          </Badge>
+                          {hasNotes && (
+                            <View style={styles.modernAppNotesContainer}>
+                              <MaterialCommunityIcons name="text-box-outline" size={16} color="#757575" style={styles.modernAppNotesIcon} />
+                              <Text style={styles.modernAppNotesText}>
+                                {appointment.notes}
+                              </Text>
+                            </View>
+                          )}
                         </View>
                       </View>
                       
                       {index < upcomingAppointments.length - 1 && (
-                        <Divider style={styles.appointmentDividerLine} />
+                        <Divider style={styles.modernAppDivider} />
                       )}
                     </View>
                   );
                 })
               ) : (
-                <View style={styles.emptyStateContainer}>
-                  <MaterialCommunityIcons name="calendar" size={40} color="#BDBDBD" />
-                  <Text style={styles.emptyStateText}>Yaklaşan randevunuz bulunmamaktadır</Text>
+                <View style={styles.modernEmptyAppointments}>
+                  <MaterialCommunityIcons name="calendar-blank" size={60} color="#E1F5FE" />
+                  <Text style={styles.modernEmptyAppText}>Yaklaşan randevunuz bulunmamaktadır</Text>
+                  <TouchableOpacity 
+                    style={styles.modernAddAppointmentButton}
+                    onPress={() => navigation.navigate('Appointments')}
+                  >
+                    <MaterialCommunityIcons name="calendar-plus" size={16} color="#fff" />
+                    <Text style={styles.modernAddAppointmentText}>Randevu Ekle</Text>
+                  </TouchableOpacity>
                 </View>
+              )}
+              
+              {upcomingAppointments.length > 0 && (
+                <TouchableOpacity 
+                  style={styles.modernViewAllButton}
+                  onPress={() => navigation.navigate('Appointments')}
+                >
+                  <Text style={styles.modernViewAllText}>Tüm Randevuları Görüntüle</Text>
+                  <MaterialCommunityIcons name="arrow-right" size={16} color="#2196F3" />
+                </TouchableOpacity>
               )}
             </Card.Content>
           </Card>
 
-          {/* Aktiviteler Kartı */}
-          <Card style={styles.card}>
-            <Card.Content>
-              <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="history" size={22} color={theme.palette.primary.main} />
-                <Title style={styles.cardTitle}>
-                  Son Aktiviteler {dashboardData.activities?.length > 0 ? `(${dashboardData.activities.length})` : ''}
-                </Title>
+          {/* Son Aktiviteler Kartı - Modernize edilmiş */}
+          <Card style={[styles.card, styles.activitiesCard]}>
+            <LinearGradient
+              colors={['#7E57C2', '#673AB7']}
+              start={{x: 0, y: 0}}
+              end={{x: 0, y: 0.1}}
+              style={styles.activitiesCardHeader}
+            >
+              <View style={styles.activitiesHeaderContent}>
+                <MaterialCommunityIcons name="history" size={24} color="#fff" />
+                <Title style={styles.activitiesHeaderTitle}>Son Aktiviteler</Title>
+                {dashboardData.activities?.length > 0 && (
+                  <View style={styles.activitiesBadge}>
+                    <Text style={styles.activitiesBadgeText}>{dashboardData.activities.length}</Text>
+                  </View>
+                )}
                 {__DEV__ && (
                   <TouchableOpacity 
-                    style={styles.debugButton} 
+                    style={[styles.debugButton, {marginLeft: 8}]} 
                     onPress={() => {
-                      Alert.alert(
-                        'Aktivite Verileri', 
-                        `Toplam Aktivite Sayısı: ${dashboardData.activities?.length || 0}`,
-                        [
-                          {
-                            text: 'Yenile', 
-                            onPress: () => {
-                              fetchActivities().then(activities => {
-                                if (activities?.length > 0) {
-                                  Alert.alert('Başarılı', `${activities.length} aktivite yüklendi`);
-                                  setDashboardData(prev => ({ ...prev, activities }));
-                                } else {
-                                  Alert.alert('Hata', 'Aktivite verisi alınamadı');
-                                }
-                              });
-                            }
-                          },
-                          {text: 'Tamam'}
-                        ]
-                      );
+                      fetchActivities().then(activities => {
+                        if (activities?.length > 0) {
+                          Alert.alert('Başarılı', `${activities.length} aktivite yüklendi`);
+                          setDashboardData(prev => ({ ...prev, activities }));
+                        } else {
+                          Alert.alert('Hata', 'Aktivite verisi alınamadı');
+                        }
+                      });
                     }}
                   >
-                    <Text style={{color: theme.palette.primary.main, fontSize: 12}}>(debug)</Text>
+                    <MaterialCommunityIcons name="refresh" size={16} color="rgba(255,255,255,0.7)" />
                   </TouchableOpacity>
                 )}
               </View>
-              
+            </LinearGradient>
+            
+            <Card.Content style={styles.activitiesCardContent}>
               {dashboardData.activities && dashboardData.activities.length > 0 ? (
-                <View style={styles.activitiesTable}>
-                  {/* Tablo Başlık */}
-                  <View style={styles.tableHeader}>
-                    <View style={styles.tableHeaderDateCell}>
-                      <Text style={styles.tableHeaderCell}>Tarih</Text>
-                    </View>
-                    <View style={styles.tableHeaderTypeCell}>
-                      <Text style={styles.tableHeaderCell}>Tip</Text>
-                    </View>
-                    <View style={styles.tableHeaderDescCell}>
-                      <Text style={styles.tableHeaderCell}>Açıklama</Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.tableBody}>
-                    {dashboardData.activities.slice(0, 5).map((activity, index) => {
-                      try {
-                        let iconName = 'bell';
-                        let iconColor = theme.palette.primary.main;
-                        let iconBg = '#E8F5E9';
-                        let typeLabel = 'Aktivite';
-                        
-                        // Aktivite tipine göre ikon ve renk belirleme
-                        if (activity.type?.includes('client')) {
-                          iconName = 'account';
-                          iconColor = theme.palette.primary.main;
-                          iconBg = '#E8F5E9';
-                          typeLabel = 'Danışan';
-                        } else if (activity.type?.includes('diet_plan') || activity.type?.includes('diet')) {
-                          iconName = 'food-apple';
-                          iconColor = '#FF9800';
-                          iconBg = '#FFF8E1';
-                          typeLabel = 'Diyet Planı';
-                        } else if (activity.type?.includes('appointment')) {
-                          iconName = 'calendar';
-                          iconColor = '#2196F3';
-                          iconBg = '#E3F2FD';
-                          typeLabel = 'Randevu';
-                        } else if (activity.type?.includes('measurement')) {
-                          iconName = 'tape-measure';
-                          iconColor = '#9C27B0';
-                          iconBg = '#F3E5F5';
-                          typeLabel = 'Ölçüm';
-                        } else if (activity.type?.includes('telegram')) {
-                          iconName = 'telegram';
-                          iconColor = '#0088cc';
-                          iconBg = '#E3F2FD';
-                          typeLabel = 'Telegram';
-                        }
-                        
-                        // Tarih formatını güvenli bir şekilde kontrol et
-                        const createdDate = activity.createdAt ? new Date(activity.createdAt) : new Date();
-                        const isValidDate = !isNaN(createdDate.getTime());
-                        const formattedDate = isValidDate 
-                          ? moment(createdDate).format('DD/MM/YYYY')
-                          : 'Geçersiz Tarih';
-                        const formattedTime = isValidDate
-                          ? moment(createdDate).format('HH:mm')
-                          : '--:--';
-                        
-                        return (
-                          <View key={activity._id || `activity-${index}`}>
-                            <View style={styles.tableRow}>
-                              {/* Tarih Sütunu */}
-                              <View style={styles.tableDateCell}>
-                                <Text style={styles.dateText} numberOfLines={1}>
-                                  {formattedDate}
-                                </Text>
-                                <Text style={styles.timeText} numberOfLines={1}>
-                                  {formattedTime}
-                                </Text>
-                              </View>
-                              
-                              {/* Tip Sütunu */}
-                              <View style={styles.tableTypeCell}>
-                                <View style={styles.typeContainer}>
-                                  <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>
-                                    <MaterialCommunityIcons 
-                                      name={iconName} 
-                                      size={14} 
-                                      color={iconColor} 
-                                    />
-                                  </View>
-                                  <Text style={styles.typeText} numberOfLines={1} ellipsizeMode="tail">
-                                    {typeLabel}
-                                  </Text>
-                                </View>
-                              </View>
-                              
-                              {/* Açıklama Sütunu */}
-                              <View style={styles.tableDescCell}>
-                                <Text style={styles.descriptionText} numberOfLines={2} ellipsizeMode="tail">
-                                  {activity.description || 'Açıklama yok'}
-                                </Text>
-                              </View>
+                <View style={styles.modernActivitiesList}>
+                  {dashboardData.activities.slice(0, 5).map((activity, index) => {
+                    try {
+                      // Aktivite tipi belirleme
+                      let iconName = 'bell-outline';
+                      let iconColor = '#673AB7';
+                      let typeLabel = 'Aktivite';
+                      
+                      if (activity.type?.includes('client')) {
+                        iconName = 'account';
+                        iconColor = '#43A047';
+                        typeLabel = 'Danışan';
+                      } else if (activity.type?.includes('diet_plan') || activity.type?.includes('diet')) {
+                        iconName = 'food-apple';
+                        iconColor = '#FF9800';
+                        typeLabel = 'Diyet Planı';
+                      } else if (activity.type?.includes('appointment')) {
+                        iconName = 'calendar-check';
+                        iconColor = '#2196F3';
+                        typeLabel = 'Randevu';
+                      } else if (activity.type?.includes('measurement')) {
+                        iconName = 'tape-measure';
+                        iconColor = '#9C27B0';
+                        typeLabel = 'Ölçüm';
+                      } else if (activity.type?.includes('telegram')) {
+                        iconName = 'telegram';
+                        iconColor = '#0088cc';
+                        typeLabel = 'Telegram';
+                      }
+                      
+                      // Tarih formatlama
+                      const createdDate = activity.createdAt ? new Date(activity.createdAt) : new Date();
+                      const isToday = moment(createdDate).isSame(moment(), 'day');
+                      const isYesterday = moment(createdDate).isSame(moment().subtract(1, 'days'), 'day');
+                      
+                      let timeText = '';
+                      if (isToday) {
+                        timeText = `Bugün ${moment(createdDate).format('HH:mm')}`;
+                      } else if (isYesterday) {
+                        timeText = `Dün ${moment(createdDate).format('HH:mm')}`;
+                      } else {
+                        timeText = moment(createdDate).format('DD/MM/YYYY HH:mm');
+                      }
+                      
+                      return (
+                        <View key={activity._id || `activity-${index}`}>
+                          <View style={styles.modernActivityItem}>
+                            <View style={[styles.modernActivityIconContainer, {backgroundColor: `${iconColor}20`}]}>
+                              <MaterialCommunityIcons name={iconName} size={20} color={iconColor} />
                             </View>
                             
-                            {index < dashboardData.activities.slice(0, 5).length - 1 && (
-                              <Divider style={styles.activityDivider} />
-                            )}
+                            <View style={styles.modernActivityContent}>
+                              <View style={styles.modernActivityHeader}>
+                                <View style={[styles.modernActivityTypeBadge, {backgroundColor: `${iconColor}20`, borderColor: `${iconColor}50`}]}>
+                                  <Text style={[styles.modernActivityTypeText, {color: iconColor}]}>{typeLabel}</Text>
+                                </View>
+                                <Text style={styles.modernActivityTime}>{timeText}</Text>
+                              </View>
+                              
+                              <Text style={styles.modernActivityDesc}>
+                                {activity.description || 'Açıklama yok'}
+                              </Text>
+                            </View>
                           </View>
-                        );
-                      } catch (err) {
-                        console.error(`Aktivite gösterme hatası: ${err.message}`);
-                        return null; // Hata durumunda bu aktiviteyi atla
-                      }
-                    })}
-                  </View>
+                          
+                          {index < dashboardData.activities.slice(0, 5).length - 1 && (
+                            <Divider style={styles.modernActivityDivider} />
+                          )}
+                        </View>
+                      );
+                    } catch (err) {
+                      console.error(`Aktivite gösterme hatası: ${err.message}`);
+                      return null;
+                    }
+                  })}
                 </View>
               ) : (
-                <View style={styles.emptyStateContainer}>
-                  <MaterialCommunityIcons name="bell-off" size={40} color="#BDBDBD" />
-                  <Text style={styles.emptyStateText}>
+                <View style={styles.modernEmptyActivities}>
+                  <MaterialCommunityIcons name="bell-sleep-outline" size={48} color="#E1E1FB" />
+                  <Text style={styles.modernEmptyText}>
                     {loading ? "Aktiviteler yükleniyor..." : "Henüz bir aktivite bulunmamaktadır"}
                   </Text>
                 </View>
               )}
+              
+              {dashboardData.activities?.length > 5 && (
+                <TouchableOpacity style={styles.modernActivityViewAll}>
+                  <Text style={styles.modernActivityViewAllText}>Tüm Aktiviteleri Görüntüle</Text>
+                  <MaterialCommunityIcons name="arrow-right" size={16} color="#673AB7" />
+                </TouchableOpacity>
+              )}
             </Card.Content>
-          </Card>
-
-          {/* Sağlık İpucu Kartı */}
-          <Card style={[styles.card, styles.tipCard]}>
-            <LinearGradient
-              colors={['#AED581', '#8BC34A']}
-              style={styles.tipGradient}
-            >
-              <Card.Content style={styles.tipContent}>
-                <View style={styles.tipIconContainer}>
-                  <MaterialCommunityIcons name="lightbulb-on" size={40} color="#fff" />
-                </View>
-                <View style={styles.tipTextContainer}>
-                  <Title style={styles.tipTitle}>Günün Sağlık İpucu</Title>
-                  <Paragraph style={styles.tipParagraph}>
-                    Metabolizmanızı hızlandırmak için sabah kahvaltısından önce 1 bardak ılık su içmeyi unutmayın. Günlük su tüketiminizi takip edin.
-                  </Paragraph>
-                </View>
-              </Card.Content>
-            </LinearGradient>
           </Card>
         </View>
 
@@ -798,107 +851,47 @@ const styles = StyleSheet.create({
     color: '#757575',
     fontSize: 16,
   },
-  modernHeader: {
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 15 : 50,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    marginBottom: 15,
-  },
-  dateSection: {
+  minimalistHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  calendarIcon: {
-    marginRight: 8,
-    backgroundColor: '#F5F7FA',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modernDateText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#666',
-  },
-  userSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  greetingContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-  },
-  nameText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  waveIcon: {
-    marginLeft: 4,
-  },
-  modernUserAvatar: {
-    backgroundColor: '#F5F7FA',
-    borderWidth: 2,
-    borderColor: '#FFF',
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.20,
-    shadowRadius: 1.41,
-  },
-  summaryContainer: {
     paddingHorizontal: 16,
-    marginBottom: 20,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 30,
+    paddingBottom: 10,
+    backgroundColor: '#fff',
   },
-  statsRow: {
+  minimalistUserInfo: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statBox: {
-    width: '30%',
-    borderRadius: 15,
-    padding: 15,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
   },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  minimalistAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+  },
+  minimalistAvatarPlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginRight: 8,
   },
-  statValue: {
-    fontSize: 22,
-    fontWeight: 'bold',
+  minimalistAvatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+  },
+  minimalistUserName: {
+    fontSize: 14,
+    fontWeight: '500',
     color: '#333',
-    marginVertical: 5,
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
+  minimalistDate: {
+    fontSize: 13,
+    color: '#757575',
   },
   cardsContainer: {
     paddingHorizontal: 16,
@@ -941,107 +934,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 180,
   },
-  statsSummaryContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 15,
-  },
-  statsSummaryItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statsSummaryLabel: {
-    fontSize: 12,
-    color: '#757575',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  statsSummaryValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  progressContainer: {
-    marginTop: 15,
-  },
-  progressItem: {
-    marginBottom: 15,
-  },
-  progressLabelContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  progressLabel: {
-    fontSize: 14,
-    color: '#757575',
-  },
-  progressValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-  },
-  appointmentItem: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-  },
-  appointmentTimeContainer: {
-    width: 80,
-    alignItems: 'center',
-  },
-  appointmentDate: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  appointmentTime: {
-    fontSize: 12,
-    color: '#757575',
-  },
-  appointmentDivider: {
-    width: 1,
-    backgroundColor: '#E0E0E0',
-    marginHorizontal: 10,
-  },
-  appointmentDetails: {
-    flex: 1,
-  },
-  appointmentClient: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 5,
-  },
-  appointmentNote: {
-    fontSize: 14,
-    color: '#757575',
-    marginBottom: 8,
-  },
-  appointmentStatus: {
-    alignSelf: 'flex-start',
-    fontSize: 12,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-  },
-  statusScheduled: {
-    backgroundColor: '#E3F2FD',
-    color: '#2196F3',
-  },
-  statusCompleted: {
-    backgroundColor: '#E8F5E9',
-    color: '#4CAF50',
-  },
-  statusCanceled: {
-    backgroundColor: '#FFEBEE',
-    color: '#F44336',
-  },
-  appointmentDividerLine: {
-    marginVertical: 5,
-  },
   emptyStateContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1052,167 +944,553 @@ const styles = StyleSheet.create({
     color: '#757575',
     textAlign: 'center',
   },
-  activityItem: {
-    flexDirection: 'row',
-    paddingVertical: 10,
+  debugButton: {
+    alignSelf: 'flex-end',
+    padding: 5,
   },
-  activityIcon: {
+  
+  // Sağlıklı yaşam kartı stilleri
+  patternOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#fdfdfd',
+    opacity: 0.5,
+    zIndex: 0,
+  },
+  healthCard: {
+    borderLeftColor: '#E91E63',
+    position: 'relative',
+  },
+  healthCardGradient: {
+    borderRadius: 16,
+    marginVertical: 10,
+    elevation: 3,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  healthCardBackgroundImage: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    opacity: 0.1,
+  },
+  healthCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+  },
+  healthCardIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  healthCardTextContent: {
+    flex: 1,
+  },
+  healthCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 6,
+  },
+  healthCardQuote: {
+    fontSize: 13,
+    color: '#fff',
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  healthCardAuthor: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  healthTipsContainer: {
+    marginTop: 12,
+  },
+  tipsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  tipsHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 6,
+  },
+  healthTipItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#E91E63',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 2,
+  },
+  healthTipIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginRight: 10,
+    shadowColor: "#E91E63",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 3.0,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  healthTipText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+    fontWeight: '500',
+  },
+  healthCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(233, 30, 99, 0.05)',
+    borderRadius: 25,
+  },
+  healthCardButtonText: {
+    fontSize: 14,
+    color: '#E91E63',
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  dailyExerciseContainer: {
+    marginTop: 15,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 2,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#E91E63',
+  },
+  dailyExerciseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  dailyExerciseTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 6,
+  },
+  dailyExerciseContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  exerciseIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(233, 30, 99, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  exerciseDetails: {
+    flex: 1,
+  },
+  exerciseNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  exerciseName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  exerciseDurationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(233, 30, 99, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  exerciseDuration: {
+    fontSize: 12,
+    color: '#E91E63',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  exerciseDescription: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+  },
+  exerciseButton: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  exerciseButtonText: {
+    fontSize: 13,
+    color: '#E91E63',
+    fontWeight: '500',
+  },
+  appointmentsCard: {
+    borderLeftColor: '#2196F3',
+    overflow: 'hidden',
+    paddingBottom: 0,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+  },
+  appointmentsCardHeader: {
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  appointmentsHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  appointmentsHeaderTitle: {
+    color: '#fff',
+    marginLeft: 10,
+    fontWeight: 'bold',
+  },
+  appointmentsCardContent: {
+    padding: 0,
+    paddingTop: 8,
+  },
+  modernAppointmentItem: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  modernAppDateSection: {
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  modernAppDateBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 5,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  todayDateBox: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#2196F3',
+  },
+  tomorrowDateBox: {
+    backgroundColor: '#FFF8E1',
+    borderColor: '#FFC107',
+  },
+  modernAppDateDay: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modernAppDateMonth: {
+    fontSize: 12,
+    color: '#757575',
+    textTransform: 'uppercase',
+  },
+  modernAppTime: {
+    fontSize: 13,
+    color: '#757575',
+    fontWeight: '500',
+  },
+  modernAppContent: {
+    flex: 1,
+  },
+  modernAppClientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modernAppClientAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginRight: 10,
+  },
+  modernAppClientAvatarDefault: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  modernAppClientInitial: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modernAppClientInfo: {
+    flex: 1,
+  },
+  modernAppClientName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  modernAppTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modernAppType: {
+    fontSize: 13,
+    marginLeft: 4,
+    marginRight: 8,
+  },
+  modernAppDuration: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  modernAppDurationText: {
+    fontSize: 12,
+    color: '#757575',
+    marginLeft: 2,
+  },
+  modernAppStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
+  },
+  modernStatusScheduled: {
+    backgroundColor: '#E3F2FD',
+  },
+  modernStatusCompleted: {
+    backgroundColor: '#E8F5E9',
+  },
+  modernStatusCanceled: {
+    backgroundColor: '#FFEBEE',
+  },
+  modernAppStatusText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#333',
+  },
+  modernAppNotesContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    backgroundColor: '#F9F9F9',
+    padding: 10,
+    borderRadius: 6,
+    borderLeftWidth: 2,
+    borderLeftColor: '#BBDEFB',
+  },
+  modernAppNotesIcon: {
+    marginRight: 6,
+    marginTop: 1,
+  },
+  modernAppNotesText: {
+    fontSize: 13,
+    color: '#616161',
+    flex: 1,
+  },
+  modernAppDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginVertical: 2,
+  },
+  modernEmptyAppointments: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  modernEmptyAppText: {
+    fontSize: 14,
+    color: '#757575',
+    marginVertical: 10,
+    textAlign: 'center',
+  },
+  modernAddAppointmentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 25,
+    marginTop: 10,
+  },
+  modernAddAppointmentText: {
+    color: '#fff',
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  modernViewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    marginTop: 8,
+  },
+  modernViewAllText: {
+    color: '#2196F3',
+    fontSize: 14,
+    fontWeight: '500',
+    marginRight: 6,
+  },
+  activitiesCard: {
+    borderLeftColor: '#673AB7',
+    overflow: 'hidden',
+    paddingBottom: 0,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    marginBottom: 0,
+  },
+  activitiesCardHeader: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  activitiesHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  activitiesHeaderTitle: {
+    color: '#fff',
+    marginLeft: 10,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  activitiesBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  activitiesBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  activitiesCardContent: {
+    padding: 0,
+  },
+  modernActivitiesList: {
+    paddingTop: 5,
+  },
+  modernActivityItem: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  modernActivityIconContainer: {
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 12,
   },
-  activityContent: {
+  modernActivityContent: {
     flex: 1,
   },
-  activityDescription: {
-    fontSize: 14,
-    color: '#333',
-  },
-  activityTime: {
-    fontSize: 12,
-    color: '#757575',
-    marginTop: 4,
-  },
-  activityDivider: {
-    marginVertical: 2,
-    backgroundColor: '#F0F0F0',
-  },
-  tipCard: {
-    overflow: 'hidden',
-  },
-  tipGradient: {
-    borderRadius: 15,
-  },
-  tipContent: {
+  modernActivityHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  tipIconContainer: {
-    marginRight: 15,
-  },
-  tipTextContainer: {
-    flex: 1,
-  },
-  tipTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
     marginBottom: 5,
   },
-  tipParagraph: {
-    fontSize: 14,
-    color: '#fff',
-  },
-  activitiesTable: {
-    borderRadius: 8,
-    marginTop: 10,
-    backgroundColor: '#fff',
+  modernActivityTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
   },
-  tableHeader: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    backgroundColor: '#F8F8F8',
+  modernActivityTypeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
-  tableHeaderCell: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#555',
+  modernActivityTime: {
+    fontSize: 12,
+    color: '#757575',
   },
-  tableBody: {
-    flex: 1,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-    minHeight: 65,
-  },
-  tableHeaderDateCell: {
-    flex: 1.5,
-    paddingRight: 5,
-  },
-  tableHeaderTypeCell: {
-    flex: 1,
-    paddingHorizontal: 5,
-  },
-  tableHeaderDescCell: {
-    flex: 2.5,
-    paddingLeft: 5,
-  },
-  tableDateCell: {
-    flex: 1.5,
-    paddingRight: 5,
-    justifyContent: 'center',
-  },
-  tableTypeCell: {
-    flex: 1,
-    paddingHorizontal: 5,
-    justifyContent: 'center',
-  },
-  tableDescCell: {
-    flex: 2.5,
-    paddingLeft: 5,
-    justifyContent: 'center',
-  },
-  typeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'nowrap',
-  },
-  iconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.18,
-    shadowRadius: 1.00,
-    elevation: 1,
-  },
-  typeText: {
-    marginLeft: 8,
+  modernActivityDesc: {
     fontSize: 13,
-    color: '#555',
-    flexShrink: 1,
-  },
-  descriptionText: {
-    fontSize: 14,
     color: '#333',
     lineHeight: 18,
-    flexShrink: 1,
   },
-  dateText: {
-    fontSize: 13,
-    color: '#333',
-    fontWeight: '500',
+  modernActivityDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
   },
-  timeText: {
-    fontSize: 12,
+  modernEmptyActivities: {
+    padding: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modernEmptyText: {
+    fontSize: 14,
     color: '#757575',
-    marginTop: 3,
+    marginTop: 8,
+    textAlign: 'center',
   },
-  viewAllButton: {
-    marginTop: 12,
-    alignSelf: 'center',
-    marginBottom: 5,
+  modernActivityViewAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
-  debugButton: {
-    alignSelf: 'flex-end',
-    padding: 5,
+  modernActivityViewAllText: {
+    fontSize: 14,
+    color: '#673AB7',
+    fontWeight: '500',
+    marginRight: 4,
   },
 });
 

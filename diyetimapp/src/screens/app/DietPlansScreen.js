@@ -27,7 +27,7 @@ import {
   Modal
 } from 'react-native-paper';
 import { useAuth } from '../../hooks/useAuth';
-import { apiRequest } from '../../api/config';
+import { apiRequest, updateDietPlansCache } from '../../api/config';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../themes/theme';
 import { useFocusEffect } from '@react-navigation/native';
@@ -42,17 +42,16 @@ const DietPlansScreen = ({ route, navigation }) => {
   const [dietPlans, setDietPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   
-  // Form modal için yeni state'ler
+  // Form modal için state'ler
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
+  const [editingPlanData, setEditingPlanData] = useState(null);
   
   // Header'daki back butonunu kaldırmak için
   useEffect(() => {
@@ -68,17 +67,32 @@ const DietPlansScreen = ({ route, navigation }) => {
       let endpoint = '/diet-plans';
       
       if (clientId) {
+        console.log(`Danışan ID'si için diyet planları yükleniyor: ${clientId}`);
         endpoint = `/diet-plans?clientId=${clientId}`;
+      } else {
+        console.log('Tüm diyet planları yükleniyor');
       }
       
       const data = await apiRequest('GET', endpoint, null, token);
       
       if (data) {
-        setDietPlans(data);
+        console.log(`Yüklenen diyet planı sayısı: ${data.length}`);
+        
+        // Diyet planlarını önbelleğe al
+        updateDietPlansCache(data);
+        
+        // ClientId varsa, sadece o danışana ait planları filtrele
+        if (clientId) {
+          const filteredPlans = data.filter(plan => plan.clientId === clientId);
+          setDietPlans(filteredPlans);
+        } else {
+          setDietPlans(data);
+        }
       } else {
         setDietPlans([]);
       }
     } catch (error) {
+      console.error('Diyet planları yükleme hatası:', error);
       Alert.alert('Hata', 'Diyet planları yüklenirken bir sorun oluştu.');
     } finally {
       setLoading(false);
@@ -110,42 +124,61 @@ const DietPlansScreen = ({ route, navigation }) => {
     setFormModalVisible(true);
   };
 
-  const showMenu = (plan, event) => {
-    const { nativeEvent } = event;
-    setMenuPosition({
-      x: nativeEvent.pageX,
-      y: nativeEvent.pageY
-    });
-    setSelectedPlan(plan);
-    setMenuVisible(true);
-  };
-
-  const hideMenu = () => {
-    setMenuVisible(false);
-  };
-
-  const handleEditPlan = () => {
-    hideMenu();
+  const handleEditPlan = (plan) => {
+    if (!plan || !plan._id) {
+      console.error('Düzenlenecek plan bulunamadı:', plan);
+      Alert.alert('Hata', 'Diyet planı detayları yüklenemedi. Lütfen tekrar deneyin.');
+      return;
+    }
+    
+    console.log('Plan düzenleme formu açılıyor, planID:', plan._id);
+    console.log('Plan bilgileri:', plan.title);
+    
     setIsEditing(true);
-    setSelectedPlanId(selectedPlan._id);
+    setSelectedPlanId(plan._id);
+    setSelectedPlan(plan); // Plan verilerini seçilen plan olarak ayarla
+    setEditingPlanData(plan); // Düzenleme için plan verilerini kaydet
     setFormModalVisible(true);
   };
 
   const handleFormSubmit = (success, action) => {
+    console.log(`Form işlemi ${success ? 'başarılı' : 'başarısız'}, işlem: ${action}`);
+    
     if (success) {
-      loadDietPlans();
-      showSnackbar(action === 'create' ? 'Diyet planı başarıyla oluşturuldu!' : 'Diyet planı başarıyla güncellendi!');
+      // Önce formları kapat ve state'leri sıfırla
+      setFormModalVisible(false);
+      setIsEditing(false);
+      setSelectedPlan(null);
+      setSelectedPlanId(null);
+      
+      // Küçük bir gecikme sonrası verileri yeniden yükle (arayüz için daha iyi)
+      setTimeout(() => {
+        loadDietPlans();
+        showSnackbar(action === 'create' ? 'Diyet planı başarıyla oluşturuldu!' : 'Diyet planı başarıyla güncellendi!');
+      }, 300);
+    } else {
+      // Başarısız olursa, sadece bildirim göster
+      Alert.alert('Hata', 'İşlem başarısız oldu. Lütfen tekrar deneyin.');
     }
   };
 
-  const confirmDelete = () => {
-    hideMenu();
+  const confirmDelete = (plan) => {
+    console.log('Silinmek üzere olan plan:', plan.title);
+    setSelectedPlan(plan);
     setDeleteDialogVisible(true);
   };
 
   const handleDeletePlan = async () => {
     try {
+      if (!selectedPlan || !selectedPlan._id) {
+        console.error('Silinecek plan bulunamadı');
+        setDeleteDialogVisible(false);
+        return;
+      }
+      
       setLoading(true);
+      console.log(`${selectedPlan._id} ID'li plan siliniyor...`);
+      
       await apiRequest('DELETE', `/diet-plans/${selectedPlan._id}`, null, token);
       
       setDeleteDialogVisible(false);
@@ -154,9 +187,11 @@ const DietPlansScreen = ({ route, navigation }) => {
       
       showSnackbar('Diyet planı başarıyla silindi');
     } catch (error) {
+      console.error('Diyet planı silme hatası:', error);
       Alert.alert('Hata', 'Diyet planı silinirken bir sorun oluştu.');
     } finally {
       setLoading(false);
+      setSelectedPlan(null);
     }
   };
 
@@ -268,6 +303,47 @@ const DietPlansScreen = ({ route, navigation }) => {
     const carbsPercent = totalMacros ? Math.round((item.macroCarbs || 0) / totalMacros * 100) : 0;
     const fatPercent = totalMacros ? Math.round((item.macroFat || 0) / totalMacros * 100) : 0;
 
+    // Toplam kalori hesabı (meal içindeki tüm besinlerden)
+    const totalMealCalories = meals.reduce((total, meal) => {
+      if (!meal.foods || !meal.foods.length) return total;
+      
+      const mealTotal = meal.foods.reduce((mealSum, food) => {
+        // Calories değerinin farklı formatlarını kontrol et
+        const calories = typeof food.calories === 'number' ? food.calories : 
+                         (food.calories && food.calories.$numberInt ? 
+                          parseInt(food.calories.$numberInt) : 0);
+        return mealSum + (calories || 0);
+      }, 0);
+      
+      return total + mealTotal;
+    }, 0);
+
+    // Edit ve sil için doğrudan fonksiyonlar
+    const editThisPlan = (item) => {
+      // Plan için gerekli kontroller
+      if (!item || !item._id) {
+        console.error('Düzenlenecek geçerli plan ID\'si yok:', item);
+        Alert.alert('Hata', 'Diyet planı bulunamadı. Lütfen sayfayı yenileyin.');
+        return;
+      }
+      
+      console.log('Düzenlenecek plan ID:', item._id);
+      console.log('Plan detayları:', item);
+      
+      try {
+        // Plan verilerini direkt handleEditPlan fonksiyonuna geçir
+        handleEditPlan(item);
+      } catch (error) {
+        console.error('Diyet planı düzenleme hatası:', error);
+        Alert.alert('Hata', 'Diyet planı düzenlenirken bir sorun oluştu.');
+      }
+    };
+
+    const deleteThisPlan = () => {
+      console.log('Silinecek plan ID:', item._id);
+      confirmDelete(item); // Doğrudan plan nesnesini geçir
+    };
+
     return (
       <Card style={styles.planCard} elevation={3}>
         {/* Üst Bilgi Alanı */}
@@ -280,164 +356,189 @@ const DietPlansScreen = ({ route, navigation }) => {
               </Text>
             </View>
           </View>
-          <IconButton
-            icon="dots-vertical"
-            size={22}
-            onPress={(e) => showMenu(item, e)}
-            style={styles.menuButton}
-          />
         </View>
         
-        {/* Plan Başlık ve Bilgileri */}
-        <Card.Content style={styles.cardContent}>
-          <Text style={styles.planTitle}>{item.title}</Text>
-          
-          {item.description && (
-            <Text style={styles.description}>{item.description}</Text>
-          )}
-          
-          <View style={styles.dateContainer}>
-            <View style={styles.dateBox}>
-              <Text style={styles.dateBoxLabel}>Başlangıç</Text>
-              <Text style={styles.dateBoxValue}>{formatDate(item.startDate)}</Text>
-            </View>
+        {/* Plan Başlık ve Bilgileri - overflow sorunu için View ile sarmala */}
+        <View style={{overflow: 'hidden'}}>
+          <Card.Content style={styles.cardContent}>
+            <Text style={styles.planTitle}>{item.title}</Text>
             
-            <View style={styles.durationBox}>
-              <Ionicons name="calendar-outline" size={16} color="#5c6bc0" />
-              <Text style={styles.durationText}>{duration}</Text>
-            </View>
+            {item.description && (
+              <Text style={styles.description}>{item.description}</Text>
+            )}
             
-            <View style={styles.dateBox}>
-              <Text style={styles.dateBoxLabel}>Bitiş</Text>
-              <Text style={styles.dateBoxValue}>{formatDate(item.endDate)}</Text>
-            </View>
-          </View>
-          
-          {remainingDays !== null && (
-            <View style={styles.remainingContainer}>
-              <View style={styles.remainingTextContainer}>
-                <Text style={styles.remainingLabel}>
-                  {remainingDays > 0 ? 'Kalan Süre:' : 'Süresi Doldu:'}
-                </Text>
-                <Text style={[
-                  styles.remainingValue, 
-                  { color: remainingDays > 0 ? '#4caf50' : '#d32f2f' }
-                ]}>
-                  {remainingDays > 0 ? `${remainingDays} gün` : `${Math.abs(remainingDays)} gün önce`}
-                </Text>
-              </View>
-              <ProgressBar 
-                progress={Math.max(0, Math.min(1, remainingDays / 30))} 
-                color={progressColor}
-                style={styles.progressBar}
-              />
-            </View>
-          )}
-          
-          <Divider style={styles.divider} />
-          
-          {/* Kalori ve Makro Bilgileri */}
-          <View style={styles.nutritionSection}>
-            <View style={styles.calorieSection}>
-              <Avatar.Icon 
-                icon="fire" 
-                size={40} 
-                style={styles.calorieIcon} 
-                color="#fff"
-              />
-              <View style={styles.calorieInfo}>
-                <Text style={styles.calorieValue}>{item.dailyCalories || 0}</Text>
-                <Text style={styles.calorieLabel}>kalori/gün</Text>
-              </View>
-            </View>
-            
-            <View style={styles.macroSection}>
-              <View style={styles.macroHeader}>
-                <Text style={styles.macroTitle}>Makro Besinler</Text>
-                <Text style={styles.macroTotal}>{totalMacros}g</Text>
+            <View style={styles.dateContainer}>
+              <View style={styles.dateBox}>
+                <Text style={styles.dateBoxLabel}>Başlangıç</Text>
+                <Text style={styles.dateBoxValue}>{formatDate(item.startDate)}</Text>
               </View>
               
-              <View style={styles.macroBarContainer}>
-                {proteinPercent > 0 && (
-                  <View 
-                    style={[
-                      styles.macroBarSegment, 
-                      {backgroundColor: '#4caf50', flex: proteinPercent}
-                    ]} 
-                  />
-                )}
-                {carbsPercent > 0 && (
-                  <View 
-                    style={[
-                      styles.macroBarSegment, 
-                      {backgroundColor: '#2196f3', flex: carbsPercent}
-                    ]} 
-                  />
-                )}
-                {fatPercent > 0 && (
-                  <View 
-                    style={[
-                      styles.macroBarSegment, 
-                      {backgroundColor: '#ff9800', flex: fatPercent}
-                    ]} 
-                  />
-                )}
+              <View style={styles.durationBox}>
+                <Ionicons name="calendar-outline" size={16} color="#5c6bc0" />
+                <Text style={styles.durationText}>{duration}</Text>
               </View>
               
-              <View style={styles.macroLegend}>
-                <View style={styles.macroLegendItem}>
-                  <View style={[styles.macroLegendColor, {backgroundColor: '#4caf50'}]} />
-                  <Text style={styles.macroLegendText}>Protein: {item.macroProtein || 0}g ({proteinPercent}%)</Text>
-                </View>
-                <View style={styles.macroLegendItem}>
-                  <View style={[styles.macroLegendColor, {backgroundColor: '#2196f3'}]} />
-                  <Text style={styles.macroLegendText}>Karbonhidrat: {item.macroCarbs || 0}g ({carbsPercent}%)</Text>
-                </View>
-                <View style={styles.macroLegendItem}>
-                  <View style={[styles.macroLegendColor, {backgroundColor: '#ff9800'}]} />
-                  <Text style={styles.macroLegendText}>Yağ: {item.macroFat || 0}g ({fatPercent}%)</Text>
-                </View>
+              <View style={styles.dateBox}>
+                <Text style={styles.dateBoxLabel}>Bitiş</Text>
+                <Text style={styles.dateBoxValue}>{formatDate(item.endDate)}</Text>
               </View>
             </View>
-          </View>
-          
-          {/* Öğün Bilgileri */}
-          {meals && meals.length > 0 && (
-            <View style={styles.mealsContainer}>
-              <Text style={styles.sectionTitle}>
-                <Ionicons name="restaurant-outline" size={18} color="#455a64" /> Öğünler
-              </Text>
-              <View style={styles.mealsList}>
-                {meals.slice(0, 4).map((meal, index) => (
-                  <View key={index} style={styles.mealItem}>
-                    <Text style={styles.mealName}>{meal.name}</Text>
-                    {meal.foods && meal.foods.length > 0 && (
-                      <Text style={styles.mealFoods}>
-                        {meal.foods.slice(0, 2).map(food => food.name).filter(Boolean).join(', ')}
-                        {meal.foods.length > 2 ? ` (+${meal.foods.length - 2})` : ''}
-                      </Text>
-                    )}
+            
+            {remainingDays !== null && (
+              <View style={styles.remainingContainer}>
+                <View style={styles.remainingTextContainer}>
+                  <Text style={styles.remainingLabel}>
+                    {remainingDays > 0 ? 'Kalan Süre:' : 'Süresi Doldu:'}
+                  </Text>
+                  <Text style={[
+                    styles.remainingValue, 
+                    { color: remainingDays > 0 ? '#4caf50' : '#d32f2f' }
+                  ]}>
+                    {remainingDays > 0 ? `${remainingDays} gün` : `${Math.abs(remainingDays)} gün önce`}
+                  </Text>
+                </View>
+                <ProgressBar 
+                  progress={Math.max(0, Math.min(1, remainingDays / 30))} 
+                  color={progressColor}
+                  style={styles.progressBar}
+                />
+              </View>
+            )}
+            
+            <Divider style={styles.divider} />
+            
+            {/* Kalori ve Makro Bilgileri */}
+            <View style={styles.nutritionSection}>
+              <View style={styles.calorieSection}>
+                <Avatar.Icon 
+                  icon="fire" 
+                  size={40} 
+                  style={styles.calorieIcon} 
+                  color="#fff"
+                />
+                <View style={styles.calorieInfo}>
+                  <Text style={styles.calorieValue}>{item.dailyCalories || 0}</Text>
+                  <Text style={styles.calorieLabel}>kalori/gün</Text>
+                </View>
+                
+                {totalMealCalories > 0 && totalMealCalories !== item.dailyCalories && (
+                  <View style={styles.mealCalorieBadge}>
+                    <Text style={styles.mealCalorieText}>
+                      Öğün toplamı: {totalMealCalories} kcal
+                    </Text>
                   </View>
-                ))}
-                {meals.length > 4 && (
-                  <Text style={styles.moreMeals}>+{meals.length - 4} öğün daha</Text>
                 )}
               </View>
+              
+              <View style={styles.macroSection}>
+                <View style={styles.macroHeader}>
+                  <Text style={styles.macroTitle}>Makro Besinler</Text>
+                  <Text style={styles.macroTotal}>{totalMacros}g</Text>
+                </View>
+                
+                <View style={styles.macroBarContainer}>
+                  {proteinPercent > 0 && (
+                    <View 
+                      style={[
+                        styles.macroBarSegment, 
+                        {backgroundColor: '#4caf50', flex: proteinPercent}
+                      ]} 
+                    />
+                  )}
+                  {carbsPercent > 0 && (
+                    <View 
+                      style={[
+                        styles.macroBarSegment, 
+                        {backgroundColor: '#2196f3', flex: carbsPercent}
+                      ]} 
+                    />
+                  )}
+                  {fatPercent > 0 && (
+                    <View 
+                      style={[
+                        styles.macroBarSegment, 
+                        {backgroundColor: '#ff9800', flex: fatPercent}
+                      ]} 
+                    />
+                  )}
+                </View>
+                
+                <View style={styles.macroLegend}>
+                  <View style={styles.macroLegendItem}>
+                    <View style={[styles.macroLegendColor, {backgroundColor: '#4caf50'}]} />
+                    <Text style={styles.macroLegendText}>Protein: {item.macroProtein || 0}g ({proteinPercent}%)</Text>
+                  </View>
+                  <View style={styles.macroLegendItem}>
+                    <View style={[styles.macroLegendColor, {backgroundColor: '#2196f3'}]} />
+                    <Text style={styles.macroLegendText}>Karbonhidrat: {item.macroCarbs || 0}g ({carbsPercent}%)</Text>
+                  </View>
+                  <View style={styles.macroLegendItem}>
+                    <View style={[styles.macroLegendColor, {backgroundColor: '#ff9800'}]} />
+                    <Text style={styles.macroLegendText}>Yağ: {item.macroFat || 0}g ({fatPercent}%)</Text>
+                  </View>
+                </View>
+              </View>
             </View>
-          )}
-          
-          {item.attachments && item.attachments.length > 0 && (
-            <View style={styles.attachmentsContainer}>
-              <Chip 
-                icon="attachment" 
-                style={styles.attachmentChip}
-                textStyle={styles.attachmentChipText}
+            
+            {/* Öğün Bilgileri */}
+            {meals && meals.length > 0 && (
+              <View style={styles.mealsContainer}>
+                <Text style={styles.sectionTitle}>
+                  <Ionicons name="restaurant-outline" size={18} color="#455a64" /> Öğünler
+                </Text>
+                <View style={styles.mealsList}>
+                  {meals.slice(0, 4).map((meal, index) => (
+                    <View key={index} style={styles.mealItem}>
+                      <Text style={styles.mealName}>{meal.name}</Text>
+                      {meal.foods && meal.foods.length > 0 ? (
+                        <>
+                          <Text style={styles.mealFoods}>
+                            {meal.foods.slice(0, 2).map(food => food.name).filter(Boolean).join(', ')}
+                            {meal.foods.length > 2 ? ` (+${meal.foods.length - 2})` : ''}
+                          </Text>
+                          <View style={styles.mealCalorieCounter}>
+                            <Ionicons name="flame-outline" size={12} color="#ff6d00" />
+                            <Text style={styles.mealCalorieText}>
+                              {meal.foods.reduce((total, food) => {
+                                const calories = typeof food.calories === 'number' ? food.calories : 
+                                                 (food.calories && food.calories.$numberInt ? 
+                                                  parseInt(food.calories.$numberInt) : 0);
+                                return total + (calories || 0);
+                              }, 0)} kcal
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        <Text style={styles.emptyMealText}>Besin eklenmemiş</Text>
+                      )}
+                    </View>
+                  ))}
+                  {meals.length > 4 && (
+                    <Text style={styles.moreMeals}>+{meals.length - 4} öğün daha</Text>
+                  )}
+                </View>
+              </View>
+            )}
+            
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#E3F2FD' }]}
+                onPress={() => editThisPlan(item)}
               >
-                {item.attachments.length} ek dosya
-              </Chip>
+                <Ionicons name="pencil" size={16} color="#1976D2" />
+                <Text style={[styles.actionButtonText, { color: '#1976D2' }]}>Düzenle</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#FBE9E7' }]}
+                onPress={() => deleteThisPlan()}
+              >
+                <Ionicons name="trash" size={16} color="#D32F2F" />
+                <Text style={[styles.actionButtonText, { color: '#D32F2F' }]}>Sil</Text>
+              </TouchableOpacity>
             </View>
-          )}
-        </Card.Content>
+          </Card.Content>
+        </View>
       </Card>
     );
   };
@@ -497,26 +598,7 @@ const DietPlansScreen = ({ route, navigation }) => {
       />
 
       <Portal>
-        <Menu
-          visible={menuVisible}
-          onDismiss={hideMenu}
-          anchor={menuPosition}
-          contentStyle={styles.menuContent}
-        >
-          <Menu.Item 
-            onPress={handleEditPlan} 
-            title="Düzenle" 
-            leadingIcon="pencil" 
-          />
-          <Menu.Item 
-            onPress={confirmDelete} 
-            title="Sil" 
-            leadingIcon="delete"
-            titleStyle={{ color: '#f44336' }} 
-          />
-        </Menu>
-
-        <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>
+        <Dialog visible={deleteDialogVisible && selectedPlan !== null} onDismiss={() => setDeleteDialogVisible(false)}>
           <Dialog.Title>Diyet Planını Sil</Dialog.Title>
           <Dialog.Content>
             <Text>
@@ -536,6 +618,7 @@ const DietPlansScreen = ({ route, navigation }) => {
           onSubmit={handleFormSubmit}
           isEditing={isEditing}
           planId={selectedPlanId}
+          planData={editingPlanData}
           clientId={clientId}
           clientName={clientName}
           token={token}
@@ -709,6 +792,7 @@ const styles = StyleSheet.create({
   calorieSection: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     marginBottom: 16,
   },
   calorieIcon: {
@@ -725,6 +809,20 @@ const styles = StyleSheet.create({
   calorieLabel: {
     fontSize: 12,
     color: '#757575',
+  },
+  mealCalorieBadge: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginLeft: 'auto',
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
+  },
+  mealCalorieText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1976D2',
   },
   macroSection: {
     backgroundColor: '#f5f5f5',
@@ -808,6 +906,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#607d8b',
   },
+  mealCalorieCounter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  emptyMealText: {
+    fontSize: 12,
+    color: '#757575',
+    fontStyle: 'italic',
+  },
   moreMeals: {
     fontSize: 12,
     color: '#546e7a',
@@ -815,25 +923,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: 8,
   },
-  attachmentsContainer: {
-    marginTop: 12,
+  actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'flex-end',
+    marginTop: 12,
+    alignItems: 'center',
   },
-  attachmentChip: {
-    backgroundColor: '#e3f2fd',
+  actionButton: {
+    flexDirection: 'row',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 1,
   },
-  attachmentChipText: {
+  actionButtonText: {
     fontSize: 12,
-    color: '#1976d2',
+    fontWeight: '600',
+    marginLeft: 4,
   },
   menuButton: {
     margin: 0,
-  },
-  menuContent: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    elevation: 4,
   },
   fab: {
     position: 'absolute',

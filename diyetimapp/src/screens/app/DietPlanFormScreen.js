@@ -30,7 +30,7 @@ import {
 } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
-import { apiRequest } from '../../api/config';
+import { apiRequest, getCachedDietPlan } from '../../api/config';
 import theme from '../../themes/theme';
 
 const { height, width } = Dimensions.get('window');
@@ -41,6 +41,7 @@ const DietPlanFormModal = ({
   onSubmit, 
   isEditing, 
   planId, 
+  planData,
   clientId, 
   clientName,
   token  // token'ı prop olarak alacağız
@@ -107,6 +108,10 @@ const DietPlanFormModal = ({
       // Animasyonu başlat
       showModal();
       
+      console.log('Form modal açılıyor. Mod:', isEditing ? 'Düzenleme' : 'Yeni Oluşturma');
+      console.log('Plan ID:', planId);
+      console.log('Client ID:', clientId);
+      
       // Danışanları yükle (eğer clientId yoksa)
       if (!clientId) {
         loadClients();
@@ -115,14 +120,23 @@ const DietPlanFormModal = ({
       }
       
       // Eğer düzenleme modunda ise mevcut planı yükle
-      if (planId && isEditing) {
-        loadPlanDetails();
+      if (isEditing && planId) {
+        console.log(`Diyet planı düzenleme modu aktif, planId: ${planId}`);
+        if (planData) {
+          // Doğrudan verilen plan verilerini kullan
+          console.log('Verilen plan verileri kullanılıyor:', planData.title);
+          populateFormWithPlanData(planData);
+        } else {
+          // Yoksa API'den veya önbellekten yükle
+          loadPlanDetails();
+        }
       } else {
+        console.log('Yeni plan oluşturma modu');
         // Yeni plan için varsayılan değerler
         resetForm();
       }
     }
-  }, [visible, isEditing, planId]);
+  }, [visible, isEditing, planId, clientId, planData]);
   
   // Modal gösterme ve gizleme animasyonları
   const showModal = () => {
@@ -211,150 +225,200 @@ const DietPlanFormModal = ({
   const loadPlanDetails = async () => {
     try {
       setLoading(true);
-      console.log('Plan verileri yükleniyor, ID:', planId);
       
-      const data = await apiRequest('GET', `/diet-plans/${planId}`, null, token);
-      console.log('Yüklenen plan verileri:', JSON.stringify(data));
+      if (!planId) {
+        console.error('Plan ID değeri eksik');
+        Alert.alert('Hata', 'Plan bilgileri yüklenemedi (ID eksik)');
+        setLoading(false);
+        return;
+      }
       
-      if (data) {
-        // Client bilgilerini ayarla (eğer clientName boşsa)
-        if (data.clientId && !clientName) {
-          try {
-            const clientData = await apiRequest('GET', `/clients/${data.clientId}`, null, token);
-            if (clientData) {
-              setSelectedClient({
-                _id: clientData._id,
-                name: clientData.name
-              });
-            }
-          } catch (error) {
-            console.log('Danışan detayları yüklenemedi', error);
-          }
+      console.log('Diyet planı verileri yükleniyor, ID:', planId);
+      
+      const data = getCachedDietPlan(planId);
+      // Eğer önbellekte veri yoksa API'den yüklemeyi dene
+      let apiData = null;
+      if (!data) {
+        console.log('Plan önbellekte bulunamadı, API\'den yükleniyor');
+        try {
+          apiData = await apiRequest('GET', `/diet-plans/${planId}`, null, token);
+        } catch (err) {
+          console.error('API\'den yükleme hatası:', err);
         }
+      }
+      
+      const planData = data || apiData;
+      console.log('Yüklenen diyet planı verileri:', JSON.stringify(planData));
+      
+      if (planData && typeof planData === 'object' && planData.success === false) {
+        console.error('API başarısız yanıt döndü:', planData.message);
+        Alert.alert(
+          'Uyarı', 
+          'Diyet planı verilerine erişilemedi. Boş bir form ile devam edilecek.',
+          [{ text: 'Tamam' }]
+        );
         
-        // Verilerden öğün bilgilerini al
-        let meals = [];
-        
-        // Meals dizisi varsa ve geçerliyse direkt kullan
-        if (data.meals && Array.isArray(data.meals) && data.meals.length > 0) {
-          console.log('Meals dizisi bulundu, kullanılıyor:', data.meals.length);
-          
-          // Foods içindeki calories değerlerini doğru şekilde işle
-          meals = data.meals.map(meal => ({
-            name: meal.name,
-            foods: (meal.foods || []).map(food => ({
-              name: food.name || '',
-              amount: food.amount || '',
-              calories: typeof food.calories === 'number' ? 
-                        food.calories : 
-                        (food.calories && food.calories.$numberInt ? 
-                          parseInt(food.calories.$numberInt) : 0)
-            }))
-          }));
-        } 
-        // Eğer meals dizisi boşsa veya yoksa content'ten almaya çalış
-        else if (data.content) {
-          console.log('Content field kullanılıyor');
-          try {
-            // String ise parse et
-            if (typeof data.content === 'string') {
-              const parsedContent = JSON.parse(data.content);
-              if (Array.isArray(parsedContent)) {
-                meals = parsedContent.map(meal => ({
-                  name: meal.name,
-                  foods: (meal.foods || []).map(food => ({
-                    name: food.name || '',
-                    amount: food.amount || '',
-                    calories: typeof food.calories === 'number' ? food.calories : 0
-                  }))
-                }));
-              }
-            } 
-            // Zaten obje ise direkt kullan
-            else if (typeof data.content === 'object' && Array.isArray(data.content)) {
-              meals = data.content;
-            }
-          } catch (error) {
-            console.error('Content parsing hatası:', error);
-          }
-        }
-        
-        // Eğer hiç meal yüklenmediyse varsayılan yapıyı kullan
-        if (!meals.length) {
-          console.log('Meal bulunamadı, varsayılanlar kullanılıyor');
-          meals = [
+        setFormData({
+          title: '',
+          dailyCalories: '0',
+          startDate: new Date(),
+          endDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+          description: '',
+          status: 'active',
+          macroProtein: '0',
+          macroCarbs: '0',
+          macroFat: '0',
+          meals: [
             { name: 'Kahvaltı', foods: [] },
             { name: 'Öğle Yemeği', foods: [] },
             { name: 'Akşam Yemeği', foods: [] },
             { name: 'Ara Öğün', foods: [] }
-          ];
-        } else {
-          console.log('Yüklenen öğün sayısı:', meals.length);
-          console.log('İlk öğündeki besin sayısı:', meals[0].foods ? meals[0].foods.length : 0);
-        }
-        
-        // Sayısal değerler için tiplerini kontrol et
-        const dailyCalories = typeof data.dailyCalories === 'number' ? 
-          data.dailyCalories : parseInt(data.dailyCalories && data.dailyCalories.$numberInt ? 
-            data.dailyCalories.$numberInt : data.dailyCalories || '0');
-          
-        const macroProtein = typeof data.macroProtein === 'number' ? 
-          data.macroProtein : parseInt(data.macroProtein && data.macroProtein.$numberInt ? 
-            data.macroProtein.$numberInt : data.macroProtein || '0');
-          
-        const macroCarbs = typeof data.macroCarbs === 'number' ? 
-          data.macroCarbs : parseInt(data.macroCarbs && data.macroCarbs.$numberInt ? 
-            data.macroCarbs.$numberInt : data.macroCarbs || '0');
-          
-        const macroFat = typeof data.macroFat === 'number' ? 
-          data.macroFat : parseInt(data.macroFat && data.macroFat.$numberInt ? 
-            data.macroFat.$numberInt : data.macroFat || '0');
-        
-        // Tarihler için kontroller
-        let startDate = new Date();
-        if (data.startDate) {
-          startDate = data.startDate instanceof Date ? 
-            data.startDate : 
-            (data.startDate.$date && data.startDate.$date.$numberLong ? 
-              new Date(parseInt(data.startDate.$date.$numberLong)) : 
-              new Date(data.startDate));
-        }
-        
-        let endDate = new Date(new Date().setDate(new Date().getDate() + 30));
-        if (data.endDate) {
-          endDate = data.endDate instanceof Date ? 
-            data.endDate : 
-            (data.endDate.$date && data.endDate.$date.$numberLong ? 
-              new Date(parseInt(data.endDate.$date.$numberLong)) : 
-              new Date(data.endDate));
-        }
-        
-        // Form state'ini güncelle
-        const formState = {
-          title: data.title || '',
-          dailyCalories: dailyCalories.toString(),
-          startDate: startDate,
-          endDate: endDate,
-          description: data.description || '',
-          status: data.status || 'active',
-          macroProtein: macroProtein.toString(),
-          macroCarbs: macroCarbs.toString(),
-          macroFat: macroFat.toString(),
-          meals: meals
-        };
-        
-        console.log('Form verileri güncellenecek:', {
-          title: formState.title,
-          dailyCalories: formState.dailyCalories,
-          startDate: formState.startDate.toISOString(),
-          endDate: formState.endDate.toISOString(),
-          mealsCount: formState.meals.length,
-          macros: `P:${formState.macroProtein} C:${formState.macroCarbs} F:${formState.macroFat}`
+          ]
         });
-        
-        setFormData(formState);
-        console.log('Form verileri güncellendi');
+        setLoading(false);
+        return;
       }
+      
+      if (!planData) {
+        console.error('API yanıtı boş: Diyet planı bulunamadı');
+        Alert.alert('Hata', 'Diyet planı bulunamadı.');
+        setLoading(false);
+        return;
+      }
+      
+      // Client bilgilerini ayarla (eğer clientName boşsa)
+      if (planData.clientId && !clientName) {
+        try {
+          const clientData = await apiRequest('GET', `/clients/${planData.clientId}`, null, token);
+          if (clientData) {
+            setSelectedClient({
+              _id: clientData._id,
+              name: clientData.name
+            });
+          }
+        } catch (error) {
+          console.log('Danışan detayları yüklenemedi', error);
+        }
+      }
+      
+      // Verilerden öğün bilgilerini al
+      let meals = [];
+      
+      // Meals dizisi varsa ve geçerliyse direkt kullan
+      if (planData.meals && Array.isArray(planData.meals) && planData.meals.length > 0) {
+        console.log('Meals dizisi bulundu, kullanılıyor:', planData.meals.length);
+        
+        // Foods içindeki calories değerlerini doğru şekilde işle
+        meals = planData.meals.map(meal => ({
+          name: meal.name,
+          foods: (meal.foods || []).map(food => ({
+            name: food.name || '',
+            amount: food.amount || '',
+            calories: typeof food.calories === 'number' ? 
+                      food.calories : 
+                      (food.calories && typeof food.calories === 'object' ? 
+                        parseInt(food.calories.$numberInt || 0) : 0)
+          }))
+        }));
+      } 
+      // Eğer meals dizisi boşsa veya yoksa content'ten almaya çalış
+      else if (planData.content) {
+        console.log('Content field kullanılıyor');
+        try {
+          // String ise parse et
+          if (typeof planData.content === 'string') {
+            const parsedContent = JSON.parse(planData.content);
+            if (Array.isArray(parsedContent)) {
+              meals = parsedContent.map(meal => ({
+                name: meal.name,
+                foods: (meal.foods || []).map(food => ({
+                  name: food.name || '',
+                  amount: food.amount || '',
+                  calories: typeof food.calories === 'number' ? food.calories : 0
+                }))
+              }));
+            }
+          } 
+          // Zaten obje ise direkt kullan
+          else if (typeof planData.content === 'object' && Array.isArray(planData.content)) {
+            meals = planData.content;
+          }
+        } catch (error) {
+          console.error('Content parsing hatası:', error);
+        }
+      }
+      
+      // Eğer hiç meal yüklenmediyse varsayılan yapıyı kullan
+      if (!meals.length) {
+        console.log('Meal bulunamadı, varsayılanlar kullanılıyor');
+        meals = [
+          { name: 'Kahvaltı', foods: [] },
+          { name: 'Öğle Yemeği', foods: [] },
+          { name: 'Akşam Yemeği', foods: [] },
+          { name: 'Ara Öğün', foods: [] }
+        ];
+      } else {
+        console.log('Yüklenen öğün sayısı:', meals.length);
+        console.log('İlk öğündeki besin sayısı:', meals[0].foods ? meals[0].foods.length : 0);
+      }
+      
+      // Sayısal değerler için tiplerini kontrol et ve dönüştür
+      const dailyCalories = typeof planData.dailyCalories === 'number' ? 
+        planData.dailyCalories : parseInt(planData.dailyCalories || '0');
+        
+      const macroProtein = typeof planData.macroProtein === 'number' ? 
+        planData.macroProtein : parseInt(planData.macroProtein || '0');
+        
+      const macroCarbs = typeof planData.macroCarbs === 'number' ? 
+        planData.macroCarbs : parseInt(planData.macroCarbs || '0');
+        
+      const macroFat = typeof planData.macroFat === 'number' ? 
+        planData.macroFat : parseInt(planData.macroFat || '0');
+      
+      // Tarihler için kontroller
+      let startDate = new Date();
+      if (planData.startDate) {
+        try {
+          startDate = planData.startDate instanceof Date ? planData.startDate : new Date(planData.startDate);
+        } catch (e) {
+          console.error('Başlangıç tarihi dönüştürme hatası:', e);
+        }
+      }
+      
+      let endDate = new Date(new Date().setDate(new Date().getDate() + 30));
+      if (planData.endDate) {
+        try {
+          endDate = planData.endDate instanceof Date ? planData.endDate : new Date(planData.endDate);
+        } catch (e) {
+          console.error('Bitiş tarihi dönüştürme hatası:', e);
+        }
+      }
+      
+      // Form state'ini güncelle
+      const formState = {
+        title: planData.title || '',
+        dailyCalories: dailyCalories.toString(),
+        startDate: startDate,
+        endDate: endDate,
+        description: planData.description || '',
+        status: planData.status || 'active',
+        macroProtein: macroProtein.toString(),
+        macroCarbs: macroCarbs.toString(),
+        macroFat: macroFat.toString(),
+        meals: meals
+      };
+      
+      console.log('Form verileri güncellenecek:', {
+        title: formState.title,
+        dailyCalories: formState.dailyCalories,
+        startDate: formState.startDate.toISOString(),
+        endDate: formState.endDate.toISOString(),
+        mealsCount: formState.meals.length,
+        macros: `P:${formState.macroProtein} C:${formState.macroCarbs} F:${formState.macroFat}`
+      });
+      
+      setFormData(formState);
+      console.log('Form verileri güncellendi');
     } catch (error) {
       console.error('Diyet planı yükleme hatası:', error);
       Alert.alert(
@@ -526,22 +590,60 @@ const DietPlanFormModal = ({
         macroCarbs: parseInt(formData.macroCarbs) || 0,
         macroFat: parseInt(formData.macroFat) || 0,
         content: JSON.stringify(formData.meals),
-        meals: formData.meals
+        meals: formData.meals.map(meal => ({
+          name: meal.name,
+          foods: meal.foods.map(food => ({
+            name: food.name || '',
+            amount: food.amount || '',
+            calories: parseInt(food.calories) || 0
+          }))
+        }))
       };
+      
+      console.log('API\'ye gönderilecek diyet planı verileri:', planData);
       
       let response;
       if (isEditing && planId) {
         // Güncelleme isteği
+        console.log(`${planId} ID'li diyet planı güncelleniyor...`);
         response = await apiRequest('PUT', `/diet-plans/${planId}`, planData, token);
-        if (response) {
-          hideModal(() => onSubmit(true, 'update'));
-        }
       } else {
         // Yeni kayıt isteği
+        console.log('Yeni diyet planı oluşturuluyor...');
         response = await apiRequest('POST', '/diet-plans', planData, token);
-        if (response) {
-          hideModal(() => onSubmit(true, 'create'));
-        }
+      }
+      
+      // Yanıt kontrolü
+      if (!response) {
+        console.error('API yanıtı boş');
+        throw new Error('Sunucu yanıtı alınamadı');
+      }
+      
+      if (response.success === false) {
+        console.error('API başarısız yanıt döndü:', response.message);
+        throw new Error(response.message || 'İşlem başarısız oldu');
+      }
+      
+      console.log('API yanıtı:', response);
+      
+      if (isEditing && planId) {
+        console.log('Diyet planı başarıyla güncellendi:', response);
+        hideModal(() => {
+          Alert.alert(
+            'Başarılı',
+            `"${planData.title}" diyet planı başarıyla güncellendi.`,
+            [{ text: 'Tamam', onPress: () => onSubmit(true, 'update') }]
+          );
+        });
+      } else {
+        console.log('Diyet planı başarıyla oluşturuldu:', response);
+        hideModal(() => {
+          Alert.alert(
+            'Başarılı',
+            `"${planData.title}" diyet planı başarıyla oluşturuldu.`,
+            [{ text: 'Tamam', onPress: () => onSubmit(true, 'create') }]
+          );
+        });
       }
     } catch (error) {
       console.error('Diyet planı kaydetme hatası:', error);
@@ -623,6 +725,145 @@ const DietPlanFormModal = ({
       </Dialog>
     </Portal>
   );
+  
+  // Plan verileriyle formu doldur
+  const populateFormWithPlanData = (plan) => {
+    try {
+      setLoading(true);
+      console.log('Diyet planı verileriyle form dolduruluyor');
+      
+      if (!plan) {
+        console.error('Plan verileri geçersiz');
+        resetForm();
+        return;
+      }
+      
+      // Verileri işle
+      let meals = [];
+      
+      // Meals dizisi varsa ve geçerliyse direkt kullan
+      if (plan.meals && Array.isArray(plan.meals) && plan.meals.length > 0) {
+        console.log('Meals dizisi bulundu, kullanılıyor:', plan.meals.length);
+        
+        // Foods içindeki calories değerlerini doğru şekilde işle
+        meals = plan.meals.map(meal => ({
+          name: meal.name,
+          foods: (meal.foods || []).map(food => ({
+            name: food.name || '',
+            amount: food.amount || '',
+            calories: typeof food.calories === 'number' ? 
+                      food.calories : 
+                      (food.calories && typeof food.calories === 'object' ? 
+                        parseInt(food.calories.$numberInt || 0) : 0)
+          }))
+        }));
+      } 
+      // Eğer meals dizisi boşsa veya yoksa content'ten almaya çalış
+      else if (plan.content) {
+        console.log('Content field kullanılıyor');
+        try {
+          // String ise parse et
+          if (typeof plan.content === 'string') {
+            const parsedContent = JSON.parse(plan.content);
+            if (Array.isArray(parsedContent)) {
+              meals = parsedContent.map(meal => ({
+                name: meal.name,
+                foods: (meal.foods || []).map(food => ({
+                  name: food.name || '',
+                  amount: food.amount || '',
+                  calories: typeof food.calories === 'number' ? food.calories : 0
+                }))
+              }));
+            }
+          } 
+          // Zaten obje ise direkt kullan
+          else if (typeof plan.content === 'object' && Array.isArray(plan.content)) {
+            meals = plan.content;
+          }
+        } catch (error) {
+          console.error('Content parsing hatası:', error);
+        }
+      }
+      
+      // Eğer hiç meal yüklenmediyse varsayılan yapıyı kullan
+      if (!meals.length) {
+        console.log('Meal bulunamadı, varsayılanlar kullanılıyor');
+        meals = [
+          { name: 'Kahvaltı', foods: [] },
+          { name: 'Öğle Yemeği', foods: [] },
+          { name: 'Akşam Yemeği', foods: [] },
+          { name: 'Ara Öğün', foods: [] }
+        ];
+      } else {
+        console.log('Yüklenen öğün sayısı:', meals.length);
+        console.log('İlk öğündeki besin sayısı:', meals[0].foods ? meals[0].foods.length : 0);
+      }
+      
+      // Sayısal değerler için tiplerini kontrol et ve dönüştür
+      const dailyCalories = typeof plan.dailyCalories === 'number' ? 
+        plan.dailyCalories : parseInt(plan.dailyCalories || '0');
+        
+      const macroProtein = typeof plan.macroProtein === 'number' ? 
+        plan.macroProtein : parseInt(plan.macroProtein || '0');
+        
+      const macroCarbs = typeof plan.macroCarbs === 'number' ? 
+        plan.macroCarbs : parseInt(plan.macroCarbs || '0');
+        
+      const macroFat = typeof plan.macroFat === 'number' ? 
+        plan.macroFat : parseInt(plan.macroFat || '0');
+      
+      // Tarihler için kontroller
+      let startDate = new Date();
+      if (plan.startDate) {
+        try {
+          startDate = plan.startDate instanceof Date ? plan.startDate : new Date(plan.startDate);
+        } catch (e) {
+          console.error('Başlangıç tarihi dönüştürme hatası:', e);
+        }
+      }
+      
+      let endDate = new Date(new Date().setDate(new Date().getDate() + 30));
+      if (plan.endDate) {
+        try {
+          endDate = plan.endDate instanceof Date ? plan.endDate : new Date(plan.endDate);
+        } catch (e) {
+          console.error('Bitiş tarihi dönüştürme hatası:', e);
+        }
+      }
+      
+      // Form state'ini güncelle
+      const formState = {
+        title: plan.title || '',
+        dailyCalories: dailyCalories.toString(),
+        startDate: startDate,
+        endDate: endDate,
+        description: plan.description || '',
+        status: plan.status || 'active',
+        macroProtein: macroProtein.toString(),
+        macroCarbs: macroCarbs.toString(),
+        macroFat: macroFat.toString(),
+        meals: meals
+      };
+      
+      console.log('Form verileri güncellenecek:', {
+        title: formState.title,
+        dailyCalories: formState.dailyCalories,
+        startDate: formState.startDate.toISOString(),
+        endDate: formState.endDate.toISOString(),
+        mealsCount: formState.meals.length,
+        macros: `P:${formState.macroProtein} C:${formState.macroCarbs} F:${formState.macroFat}`
+      });
+      
+      setFormData(formState);
+      console.log('Form verileri güncellendi');
+    } catch (error) {
+      console.error('Form doldurma hatası:', error);
+      Alert.alert('Hata', 'Form verileri yüklenemedi.');
+      resetForm();
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Render Form Content
   const renderFormContent = () => (
@@ -1000,25 +1241,6 @@ const DietPlanFormModal = ({
               )}
             </View>
           ))}
-          
-          <Button
-            mode="outlined"
-            icon="plus"
-            onPress={() => {
-              const updatedMeals = [...formData.meals];
-              updatedMeals.push({
-                name: `Ara Öğün ${formData.meals.filter(m => m.name.includes('Ara Öğün')).length + 1}`,
-                foods: []
-              });
-              setFormData({
-                ...formData,
-                meals: updatedMeals
-              });
-            }}
-            style={styles.addMealButton}
-          >
-            Yeni Öğün Ekle
-          </Button>
         </Card.Content>
       </Card>
       
@@ -1116,7 +1338,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f5f7fa',
   },
   scrollContent: {
     padding: 16,
@@ -1124,44 +1346,67 @@ const styles = StyleSheet.create({
   },
   formCard: {
     marginBottom: 16,
-    borderRadius: 16,
-    elevation: 3,
+    borderRadius: 20,
+    elevation: 2,
     overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0, 
+      height: 2
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    borderWidth: 0,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
-    paddingBottom: 8,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#eef2f7',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: theme.palette.primary.main,
     marginLeft: 8,
+    letterSpacing: 0.3,
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
-    color: '#555',
+    color: '#455a64',
     marginBottom: 6,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   required: {
     color: '#f44336',
+    fontWeight: 'bold',
   },
   input: {
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   textArea: {
     backgroundColor: '#fff',
-    minHeight: 80,
-    borderRadius: 8,
+    minHeight: 100,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+    textAlignVertical: 'top',
+    padding: 8,
   },
   clientSelector: {
     flexDirection: 'row',
@@ -1169,9 +1414,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: theme.palette.primary.light,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
     backgroundColor: '#fff',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   selectedClientText: {
     color: '#333',
@@ -1183,36 +1433,39 @@ const styles = StyleSheet.create({
   },
   clientsDialog: {
     maxHeight: '80%',
-    borderRadius: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   clientsScrollView: {
     maxHeight: 300,
   },
   clientItem: {
-    padding: 12,
+    padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    borderRadius: 8,
+    borderRadius: 12,
+    marginBottom: 4,
   },
   clientName: {
     fontSize: 16,
     color: '#333',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   clientEmail: {
     fontSize: 12,
     color: '#666',
-    marginTop: 2,
+    marginTop: 4,
   },
   noClientsText: {
     textAlign: 'center',
-    padding: 16,
+    padding: 20,
     color: '#666',
+    fontStyle: 'italic',
   },
   dateRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   dateGroup: {
     flex: 1,
@@ -1223,10 +1476,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.palette.primary.light,
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     backgroundColor: '#fff',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   dateIcon: {
     marginRight: 8,
@@ -1234,17 +1492,21 @@ const styles = StyleSheet.create({
   dateText: {
     color: '#333',
     fontSize: 15,
+    fontWeight: '500',
   },
   statusSelector: {
-    marginTop: 6,
+    marginTop: 8,
   },
   segmentedButtons: {
     backgroundColor: '#fff',
+    elevation: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   macroRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   macroField: {
     flex: 1,
@@ -1253,47 +1515,63 @@ const styles = StyleSheet.create({
   macroHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
   },
   macroHeaderText: {
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 6,
+    letterSpacing: 0.3,
   },
   macroInput: {
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   macroTotalCard: {
     backgroundColor: '#f9f9f9',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 8,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 12,
     borderWidth: 1,
     borderColor: '#eee',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   macroProgressContainer: {
     flexDirection: 'row',
-    height: 10,
-    borderRadius: 5,
+    height: 12,
+    borderRadius: 6,
     overflow: 'hidden',
     backgroundColor: '#e0e0e0',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   macroProgress: {
     height: '100%',
   },
   macroTotalRow: {
-    marginTop: 8,
+    marginTop: 10,
   },
   macroTotalLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   macroPercentageRow: {
     flexDirection: 'row',
@@ -1307,22 +1585,27 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    marginRight: 4,
+    marginRight: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
   },
   macroPercentageText: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 13,
+    color: '#555',
+    fontWeight: '500',
   },
   mealSection: {
     marginBottom: 20,
     backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#eee',
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 2,
   },
@@ -1330,36 +1613,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingBottom: 8,
+    marginBottom: 14,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   mealTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: 'bold',
     color: '#333',
+    letterSpacing: 0.3,
   },
   addFoodButton: {
-    margin: 0,
-    borderRadius: 20,
+    borderRadius: 25,
     elevation: 0,
   },
   foodsList: {
-    marginTop: 8,
+    marginTop: 10,
   },
   foodItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     backgroundColor: 'white',
-    borderRadius: 8,
+    borderRadius: 14,
     marginBottom: 8,
     elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
   },
   foodInfo: {
     flex: 1,
@@ -1380,23 +1667,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 6,
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   foodAmount: {
     fontSize: 12,
     color: '#666',
     marginRight: 8,
     backgroundColor: '#f0f0f0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 4,
   },
   calorieTag: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#e8f5e9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 4,
   },
   foodCalories: {
     fontSize: 12,
@@ -1406,43 +1697,52 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     margin: 0,
+    backgroundColor: '#ffebee',
+    borderRadius: 20,
   },
   mealSummary: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 8,
-    paddingHorizontal: 6,
+    marginTop: 14,
+    paddingTop: 10,
+    paddingHorizontal: 8,
   },
   mealCalorieBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.palette.primary.main,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   mealTotalText: {
     fontSize: 14,
     fontWeight: 'bold',
     color: 'white',
-    marginLeft: 4,
+    marginLeft: 6,
   },
   mealItemCount: {
     fontSize: 13,
     color: '#666',
     backgroundColor: '#f0f0f0',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    overflow: 'hidden',
+    fontWeight: '500',
   },
   emptyMealContainer: {
     flexDirection: 'column',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#eee',
     borderStyle: 'dashed',
@@ -1452,8 +1752,8 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
     textAlign: 'center',
-    padding: 8,
-    marginTop: 4,
+    padding: 10,
+    marginTop: 8,
   },
   addMealButton: {
     marginTop: 16,
@@ -1463,28 +1763,37 @@ const styles = StyleSheet.create({
   buttonGroup: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 20,
+    marginTop: 20,
+    marginBottom: 30,
   },
   cancelButton: {
     flex: 1,
     marginRight: 8,
     borderColor: '#ccc',
-    borderRadius: 8,
+    borderRadius: 12,
+    paddingVertical: 6,
+    elevation: 1,
   },
   saveButton: {
     flex: 1,
     marginLeft: 8,
     backgroundColor: theme.palette.primary.main,
-    borderRadius: 8,
+    borderRadius: 12,
+    paddingVertical: 6,
+    shadowColor: theme.palette.primary.main,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 3,
   },
   foodDialog: {
-    borderRadius: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   dialogInput: {
     backgroundColor: '#fff',
-    marginBottom: 12,
-    borderRadius: 8,
+    marginBottom: 14,
+    borderRadius: 12,
   },
 });
 

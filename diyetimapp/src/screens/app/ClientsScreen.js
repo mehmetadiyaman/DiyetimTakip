@@ -88,9 +88,7 @@ const ClientsScreen = ({ navigation }) => {
     
     // Durum filtreleme
     if (filter !== 'all') {
-      if (filter === 'active' || filter === 'inactive') {
-        result = result.filter(client => client.status === filter);
-      } else if (filter.startsWith('activity_')) {
+      if (filter.startsWith('activity_')) {
         // Aktivite seviyesine göre filtreleme
         const activityLevel = filter.replace('activity_', '');
         result = result.filter(client => client.activityLevel === activityLevel);
@@ -241,20 +239,6 @@ const ClientsScreen = ({ navigation }) => {
     }
   };
 
-  // Durum çipi rengi belirleme
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active':
-        return { bg: '#E8F5E9', text: '#4CAF50' };
-      case 'inactive':
-        return { bg: '#FFEBEE', text: '#F44336' };
-      case 'pending':
-        return { bg: '#FFF8E1', text: '#FFC107' };
-      default:
-        return { bg: '#E0E0E0', text: '#757575' };
-    }
-  };
-
   const renderItem = ({ item }) => (
     <Card style={styles.clientCard}>
       <TouchableOpacity onPress={() => handleClientPress(item)}>
@@ -268,25 +252,6 @@ const ClientsScreen = ({ navigation }) => {
             <View style={styles.clientDetails}>
               <View style={styles.nameRow}>
                 <Text style={styles.clientName}>{item.name}</Text>
-                {item.status && (
-                  <View style={[
-                    styles.statusBadge, 
-                    { 
-                      backgroundColor: getStatusColor(item.status).bg,
-                      borderWidth: 1,
-                      borderColor: getStatusColor(item.status).border
-                    }
-                  ]}>
-                    <Text style={[
-                      styles.statusText,
-                      { color: getStatusColor(item.status).text }
-                    ]}>
-                      {item.status === 'active' ? 'Aktif' : 
-                       item.status === 'inactive' ? 'Pasif' : 
-                       item.status === 'pending' ? 'Bekliyor' : 'Bilinmiyor'}
-                    </Text>
-                  </View>
-                )}
                 {item.referenceCode && (
                   <View style={styles.referenceCodeBadge}>
                     <Text style={styles.referenceCodeText}>#{item.referenceCode}</Text>
@@ -362,75 +327,6 @@ const ClientsScreen = ({ navigation }) => {
         />
       </View>
       
-      <View style={styles.filterBarContainer}>
-        <View style={styles.filterButtonsContainer}>
-          <TouchableOpacity 
-            style={[
-              styles.filterButton, 
-              activeFilter === 'all' && styles.activeFilterButton
-            ]}
-            onPress={() => handleFilterChange('all')}
-          >
-            <Ionicons 
-              name="people" 
-              size={16} 
-              color={activeFilter === 'all' ? 'white' : '#757575'} 
-              style={{ marginRight: 4 }}
-            />
-            <Text style={[
-              styles.filterButtonText,
-              activeFilter === 'all' && styles.activeFilterButtonText
-            ]}>Tümü</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[
-              styles.filterButton, 
-              activeFilter === 'active' && styles.activeFilterButton
-            ]}
-            onPress={() => handleFilterChange('active')}
-          >
-            <Ionicons 
-              name="checkmark-circle" 
-              size={16} 
-              color={activeFilter === 'active' ? 'white' : '#4CAF50'} 
-              style={{ marginRight: 4 }}
-            />
-            <Text style={[
-              styles.filterButtonText,
-              activeFilter === 'active' && styles.activeFilterButtonText
-            ]}>Aktif</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[
-              styles.filterButton, 
-              activeFilter === 'inactive' && styles.activeFilterButton
-            ]}
-            onPress={() => handleFilterChange('inactive')}
-          >
-            <Ionicons 
-              name="close-circle" 
-              size={16} 
-              color={activeFilter === 'inactive' ? 'white' : '#F44336'} 
-              style={{ marginRight: 4 }}
-            />
-            <Text style={[
-              styles.filterButtonText,
-              activeFilter === 'inactive' && styles.activeFilterButtonText
-            ]}>Pasif</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.sortButton} 
-          onPress={() => setSortModalVisible(true)}
-        >
-          <Ionicons name="funnel-outline" size={16} color="#4caf50" />
-          <Text style={styles.sortButtonText}>Sırala</Text>
-        </TouchableOpacity>
-      </View>
-
       {error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : filteredClients.length === 0 ? (
@@ -592,26 +488,26 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    backgroundColor: '#81c784',
-    paddingBottom: 16,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
+    paddingTop: 16,
+    paddingBottom: 20,
+    backgroundColor: '#4caf50',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
   searchBar: {
-    elevation: 1,
-    borderRadius: 10,
-    height: 42,
+    elevation: 2,
+    borderRadius: 12,
+    height: 48,
     backgroundColor: 'white',
-    shadowColor: 'rgba(0,0,0,0.1)',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
+    shadowColor: 'rgba(0,0,0,0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   filterBarContainer: {
     flexDirection: 'row',

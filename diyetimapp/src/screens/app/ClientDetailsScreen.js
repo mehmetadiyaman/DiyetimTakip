@@ -57,7 +57,6 @@ const ClientDetailsScreen = ({ navigation, route }) => {
     medicalHistory: '',
     dietaryRestrictions: '',
     notes: '',
-    status: 'active', // Varsayılan olarak aktif
     referenceCode: '',
     profilePicture: ''
     // telegramChatId web sürümünde yönetilecek
@@ -157,7 +156,6 @@ const ClientDetailsScreen = ({ navigation, route }) => {
           dietaryRestrictions: data.dietaryRestrictions || '',
           notes: data.notes || '',
           profilePicture: data.profilePicture || '',
-          status: data.status || 'active',
           referenceCode: data.referenceCode || ''
           // telegramChatId web sürümünde yönetilecek
         });
@@ -446,19 +444,6 @@ const ClientDetailsScreen = ({ navigation, route }) => {
     });
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active':
-        return { bg: '#E8F5E9', text: '#2E7D32', border: '#A5D6A7' };
-      case 'inactive':
-        return { bg: '#FFEBEE', text: '#C62828', border: '#EF9A9A' };
-      case 'pending':
-        return { bg: '#FFF8E1', text: '#F57F17', border: '#FFE082' };
-      default:
-        return { bg: '#E0E0E0', text: '#757575', border: '#BDBDBD' };
-    }
-  };
-
   const computeBMI = () => {
     if (client.height && client.startingWeight) {
       const heightInMeters = parseFloat(client.height) / 100;
@@ -606,21 +591,6 @@ const ClientDetailsScreen = ({ navigation, route }) => {
                     Erkek
                   </Chip>
                 </View>
-              </View>
-              
-              <View style={styles.row}>
-                <Text style={styles.switchLabel}>Durum:</Text>
-                <SegmentedButtons
-                  value={client.status}
-                  onValueChange={value => setClient({...client, status: value})}
-                  buttons={[
-                    { value: 'active', label: 'Aktif' },
-                    { value: 'inactive', label: 'Pasif' },
-                    { value: 'pending', label: 'Bekleyen' }
-                  ]}
-                  style={styles.statusButtons}
-                  theme={{ colors: { primary: theme.palette.primary.main } }}
-                />
               </View>
               
               <TouchableOpacity 
@@ -825,23 +795,6 @@ const ClientDetailsScreen = ({ navigation, route }) => {
                 <View style={styles.profileInfo}>
                   <View style={styles.nameStatusRow}>
                     <Title style={styles.clientName}>{client.name}</Title>
-                    <View style={[
-                      styles.statusBadge, 
-                      { 
-                        backgroundColor: getStatusColor(client.status).bg,
-                        borderWidth: 1,
-                        borderColor: getStatusColor(client.status).border
-                      }
-                    ]}>
-                      <Text style={[
-                        styles.statusText,
-                        { color: getStatusColor(client.status).text }
-                      ]}>
-                        {client.status === 'active' ? 'Aktif' : 
-                         client.status === 'inactive' ? 'Pasif' : 
-                         client.status === 'pending' ? 'Bekleyen' : 'Bilinmiyor'}
-                      </Text>
-                    </View>
                   </View>
                   <Text style={styles.clientDetail}>{client.email}</Text>
                   {client.phone && <Text style={styles.clientDetail}>{client.phone}</Text>}
@@ -921,20 +874,6 @@ const ClientDetailsScreen = ({ navigation, route }) => {
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Aktivite Seviyesi:</Text>
                     <Text style={styles.detailValue}>{getActivityLevelLabel(client.activityLevel)}</Text>
-                  </View>
-                )}
-                
-                {client.status && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Durum:</Text>
-                    <Text style={[styles.detailValue, { 
-                      color: getStatusColor(client.status).text,
-                      fontWeight: 'bold'
-                    }]}>
-                      {client.status === 'active' ? 'Aktif' : 
-                       client.status === 'inactive' ? 'Pasif' : 
-                       client.status === 'pending' ? 'Bekleyen' : 'Bilinmiyor'}
-                    </Text>
                   </View>
                 )}
                 
